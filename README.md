@@ -16,6 +16,6 @@ For training optimal non-private baseline neural network on Purchase-100 data se
 
 ### Training the Differential Private Models
 
-Update the $dataset, $model and $lambda variables accordingly and run './run_experiment' on terminal. Results will be stored in 'results/' folder.
+Update the $dataset, $model and $lambda variables accordingly and run './run_experiment.sh' on terminal. Results will be stored in 'results/' folder.
 
 Update the interpret_results.py file accordingly and run it to obtain the final results.
