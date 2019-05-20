@@ -8,6 +8,8 @@ Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. For
 
 ### Training the Non-Private Baseline Models for CIFAR
 
+When you are running the code on a data set for the first time, run `python attack.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
+
 Run `python attack.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
 
 For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$dataset`='cifar_100', `$model`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
