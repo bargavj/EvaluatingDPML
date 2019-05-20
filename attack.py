@@ -29,6 +29,8 @@ if not os.path.exists(MODEL_PATH):
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
 
+if not os.path.exists(RESULT_PATH):
+    os.makedirs(RESULT_PATH)
 
 def load_trained_indices():
     fname = MODEL_PATH + 'data_indices.npz'
