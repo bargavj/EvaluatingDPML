@@ -29,6 +29,8 @@ if not os.path.exists(MODEL_PATH):
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
 
+if not os.path.exists(RESULT_PATH):
+    os.makedirs(RESULT_PATH)
 
 def load_trained_indices():
     fname = MODEL_PATH + 'data_indices.npz'
@@ -351,6 +353,9 @@ def get_random_features(data, pool, size):
 
 
 def run_experiment():
+	if not os.path.exists(RESULT_PATH+args.train_dataset):
+	    os.makedirs(RESULT_PATH+args.train_dataset)
+
 	print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
 	dataset = load_data('target_data.npz')
 	hold_out_train_data = None
