@@ -148,18 +148,18 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
 
     elif privacy == 'grad_pert':
         n = len(train_x)
-        alpha = 1
-        _q = batch_size / n
-        _T = epochs * n / batch_size
+        alpha = 2 * np.log(1 / delta) / epsilon + 1 # Parameter for Renyi Divergence
+        _q = batch_size / n # Sampling Ratio
+        _T = epochs * n / batch_size # Number of Steps
         sigma = 0.
         if dp == 'adv_cmp':
-            sigma = _q * np.sqrt(2 * _T * np.log(1.25 / delta) * np.log(_T / delta)) / epsilon / batch_size # Adv Comp
+            sigma = _q * np.sqrt(2 * _T * np.log(2.5 * _T / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon / batch_size # Adv Comp
         elif dp == 'zcdp':
-            sigma = _q * np.sqrt(2 * _T * np.log(1.25 / delta)) / epsilon / batch_size # zCDP
+            sigma = _q * np.sqrt(_T / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon / batch_size # zCDP
         elif dp == 'rdp':
-            sigma = _q * np.sqrt(alpha * _T / 2 / epsilon) / batch_size # RDP
+            sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon / batch_size # RDP
         elif dp == 'dp':
-            sigma = _q * _T * np.sqrt(2 * np.log(1.25 / delta)) / epsilon / batch_size # DP
+            sigma = _q * _T * np.sqrt(2 * np.log(1.25 * _T / delta)) / epsilon / batch_size # DP
         print(sigma)
         updates = perturb(updates, params, learning_rate, sigma=sigma, C=epsilon)
 

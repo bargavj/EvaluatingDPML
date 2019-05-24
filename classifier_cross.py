@@ -209,19 +209,19 @@ def get_model(features, labels, mode, params):
     if mode == tf.estimator.ModeKeys.TRAIN:
 
         if privacy == 'grad_pert':
-            alpha = 1 # Parameter for Renyi Divergence
+            alpha = 2 * np.log(1 / delta) / epsilon + 1 # Parameter for Renyi Divergence
             C = 1 # Clipping Threshold
             _q = batch_size / n # Sampling Ratio
             _T = epochs * n / batch_size # Number of Steps
             sigma = 0.
             if dp == 'adv_cmp':
-                sigma = _q * np.sqrt(2 * _T * np.log(1.25 / delta) * np.log(_T / delta)) / epsilon # Adv Comp
+                sigma = _q * np.sqrt(2 * _T * np.log(2.5 * _T / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
             elif dp == 'zcdp':
-                sigma = _q * np.sqrt(2 * _T * np.log(1.25 / delta)) / epsilon # zCDP
+                sigma = _q * np.sqrt(_T / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':
-                sigma = _q * np.sqrt(alpha * _T / 2 / epsilon) # RDP
+                sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon # RDP
             elif dp == 'dp':
-                sigma = _q * _T * np.sqrt(2 * np.log(1.25 / delta)) / epsilon # DP
+                sigma = _q * _T * np.sqrt(2 * np.log(1.25 * _T / delta)) / epsilon # DP
             print(sigma)
     
             optimizer = dp_optimizer.DPAdamGaussianOptimizer(
