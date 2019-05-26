@@ -1,5 +1,7 @@
 from sklearn.metrics import classification_report, accuracy_score
 from collections import OrderedDict
+from privacy.analysis.rdp_accountant import compute_rdp
+from privacy.analysis.rdp_accountant import get_privacy_spent
 from privacy.optimizers import dp_optimizer
 import tensorflow as tf
 import numpy as np
@@ -11,6 +13,8 @@ try:
 except:  # pylint: disable=bare-except
   AdamOptimizer = tf.optimizers.Adam  # pylint: disable=invalid-name
 
+noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219}
+
 
 def get_predictions(predictions):
     pred_y, pred_scores = [], []
@@ -20,6 +24,7 @@ def get_predictions(predictions):
         pred_scores.append(val['probabilities'])
         val = next(predictions, None)
     return np.array(pred_y), np.matrix(pred_scores)
+
 
 def get_model(features, labels, mode, params):
     n, n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, l2_ratio, epochs = params
@@ -48,19 +53,16 @@ def get_model(features, labels, mode, params):
     scalar_loss = tf.reduce_mean(vector_loss)
 
     if mode == tf.estimator.ModeKeys.TRAIN:
-
+        
         if privacy == 'grad_pert':
-            alpha = 2 * np.log(1 / delta) / epsilon + 1 # Parameter for Renyi Divergence
             C = 1 # Clipping Threshold
-            _q = batch_size / n # Sampling Ratio
-            _T = epochs * n / batch_size # Number of Steps
             sigma = 0.
             if dp == 'adv_cmp':
                 sigma = np.sqrt(2 * epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
             elif dp == 'zcdp':
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':
-                sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon # RDP -- run using rdp_accountant?
+                sigma = noise_multiplier[epsilon]
             elif dp == 'dp':
                 sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon # DP
             print(sigma)
@@ -131,6 +133,11 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
         shuffle=False)
 
     steps_per_epoch = train_x.shape[0] // batch_size
+    orders = [1 + x / 100.0 for x in range(1, 1000)] + list(range(12, 1200))
+    rdp = compute_rdp(batch_size / train_x.shape[0], noise_multiplier[epsilon], epochs * steps_per_epoch, orders)
+    eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
+    print('\nFor delta= %.5f' % delta, ',the epsilon is: %.2f\n' % eps)
+
     for epoch in range(1, epochs + 1):
         classifier.train(input_fn=train_input_fn, steps=steps_per_epoch)
     

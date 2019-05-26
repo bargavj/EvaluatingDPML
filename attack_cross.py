@@ -376,16 +376,16 @@ def get_random_features(data, pool, size):
 
 
 def run_experiment():
-	print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
-	dataset = load_data('target_data.npz')
-	hold_out_train_data = None
-	if args.pretraining:
-		hold_out_train_data = load_data('hold_out_train_data.npz')
-	train_x, train_y, test_x, test_y = dataset
-	true_x = np.vstack((train_x, test_x))
-	true_y = np.append(train_y, test_y)
-	batch_size = args.target_batch_size
-	pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
+    print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
+    dataset = load_data('target_data.npz')
+    hold_out_train_data = None
+    if args.pretraining:
+        hold_out_train_data = load_data('hold_out_train_data.npz')
+    train_x, train_y, test_x, test_y = dataset
+    true_x = np.vstack((train_x, test_x))
+    true_y = np.append(train_y, test_y)
+    batch_size = args.target_batch_size
+    pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
 	    dataset=dataset,
 		hold_out_train_data=hold_out_train_data,
 		epochs=args.target_epochs,
@@ -399,15 +399,15 @@ def run_experiment():
         epsilon=args.target_epsilon,
         delta=args.target_delta,
         save=args.save_model)
-	#train_loss *= batch_size / len(train_y)
+    #train_loss *= batch_size / len(train_y)
 
-	features = get_random_features(true_x, range(true_x.shape[1]), 5)
-	print(features)
-	attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
-	mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
-	attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
+    features = get_random_features(true_x, range(true_x.shape[1]), 5)
+    print(features)
+    attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
+    mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
+    attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
 
-	pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':

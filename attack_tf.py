@@ -10,8 +10,7 @@ import imp
 import pickle
 import matplotlib.pyplot as plt
 import random
-#np.random.seed(21312)
-random.seed(21312)
+
 MODEL_PATH = './model/'
 DATA_PATH = './data/'
 RESULT_PATH = './results/'
@@ -380,28 +379,29 @@ def log_loss(a, b):
 
 
 def get_random_features(data, pool, size):
-	features = set()
-	while(len(features) < size):
-		feat = random.choice(pool)
-		if len(np.unique(data[:,feat])) > 1:
-			features.add(feat)
-	return list(features)
+    random.seed(21312)
+    features = set()
+    while(len(features) < size):
+        feat = random.choice(pool)
+        if len(np.unique(data[:,feat])) > 1:
+            features.add(feat)
+    return list(features)
 
 
 def run_experiment():
-	print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
-	dataset = load_data('target_data.npz')
-	hold_out_train_data = None
-	if args.pretraining:
-		hold_out_train_data = load_data('hold_out_train_data.npz')
-	train_x, train_y, test_x, test_y = dataset
-	true_x = np.vstack((train_x, test_x))
-	true_y = np.append(train_y, test_y)
-	batch_size = args.target_batch_size
-	pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
-	    dataset=dataset,
-		hold_out_train_data=hold_out_train_data,
-		epochs=args.target_epochs,
+    print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
+    dataset = load_data('target_data.npz')
+    hold_out_train_data = None
+    if args.pretraining:
+        hold_out_train_data = load_data('hold_out_train_data.npz')
+    train_x, train_y, test_x, test_y = dataset
+    true_x = np.vstack((train_x, test_x))
+    true_y = np.append(train_y, test_y)
+    batch_size = args.target_batch_size
+    pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
+        dataset=dataset,
+        hold_out_train_data=hold_out_train_data,
+        epochs=args.target_epochs,
         batch_size=args.target_batch_size,
         learning_rate=args.target_learning_rate,
         n_hidden=args.target_n_hidden,
@@ -412,15 +412,15 @@ def run_experiment():
         epsilon=args.target_epsilon,
         delta=args.target_delta,
         save=args.save_model)
-	#train_loss *= batch_size / len(train_y)
+    #train_loss *= batch_size / len(train_y)
 
-	features = get_random_features(true_x, range(true_x.shape[1]), 5)
-	print(features)
-	attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
-	mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
-	attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
+    features = get_random_features(true_x, range(true_x.shape[1]), 5)
+    print(features)
+    attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
+    mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
+    attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
 
-	pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
@@ -439,7 +439,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_data_size', type=int, default=int(1e4))
     parser.add_argument('--target_model', type=str, default='nn')
     parser.add_argument('--target_learning_rate', type=float, default=0.01)
-    parser.add_argument('--target_batch_size', type=int, default=2000)
+    parser.add_argument('--target_batch_size', type=int, default=200)
     parser.add_argument('--target_n_hidden', type=int, default=256)
     parser.add_argument('--target_epochs', type=int, default=100)
     parser.add_argument('--target_l2_ratio', type=float, default=1e-8)

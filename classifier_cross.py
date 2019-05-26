@@ -1,5 +1,7 @@
 from sklearn.metrics import classification_report, accuracy_score
 from collections import OrderedDict
+from privacy.analysis.rdp_accountant import compute_rdp
+from privacy.analysis.rdp_accountant import get_privacy_spent
 from privacy.optimizers import dp_optimizer
 import theano.tensor as T
 import tensorflow as tf
@@ -13,6 +15,27 @@ try:
   AdamOptimizer = tf.train.AdamOptimizer
 except:  # pylint: disable=bare-except
   AdamOptimizer = tf.optimizers.Adam  # pylint: disable=invalid-name
+
+noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219}
+
+class EpsilonPrintingTrainingHook(tf.estimator.SessionRunHook):
+  """Training hook to print current value of epsilon after an epoch."""
+
+  def __init__(self, ledger):
+    """Initalizes the EpsilonPrintingTrainingHook.
+    Args:
+      ledger: The privacy ledger.
+    """
+    self._samples, self._queries = ledger.get_unformatted_ledger()
+
+  def end(self, session):
+    orders = [1 + x / 10.0 for x in range(1, 100)] + list(range(12, 64))
+    samples = session.run(self._samples)
+    queries = session.run(self._queries)
+    formatted_ledger = privacy_ledger.format_ledger(samples, queries)
+    rdp = compute_rdp_from_ledger(formatted_ledger, orders)
+    eps = get_privacy_spent(orders, rdp, target_delta=1e-5)[0]
+    print('For delta=1e-5, the current epsilon is: %.2f' % eps)
 
 
 def iterate_minibatches(inputs, targets, batch_size, shuffle=True):
@@ -209,17 +232,14 @@ def get_model(features, labels, mode, params):
     if mode == tf.estimator.ModeKeys.TRAIN:
 
         if privacy == 'grad_pert':
-            alpha = 2 * np.log(1 / delta) / epsilon + 1 # Parameter for Renyi Divergence
             C = 1 # Clipping Threshold
-            _q = batch_size / n # Sampling Ratio
-            _T = epochs * n / batch_size # Number of Steps
             sigma = 0.
             if dp == 'adv_cmp':
                 sigma = np.sqrt(2 * epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
             elif dp == 'zcdp':
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':
-                sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon # RDP -- run using rdp_accountant?
+                sigma = noise_multiplier[epsilon]
             elif dp == 'dp':
                 sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon # DP
             print(sigma)
@@ -290,6 +310,11 @@ def train_private(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100
         shuffle=False)
 
     steps_per_epoch = train_x.shape[0] // batch_size
+    orders = [1 + x / 100.0 for x in range(1, 1000)] + list(range(12, 1200))
+    rdp = compute_rdp(batch_size / train_x.shape[0], noise_multiplier[epsilon], epochs * steps_per_epoch, orders)
+    eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
+    print('\nFor delta= %.5f' % delta, ',the epsilon is: %.2f\n' % eps)
+    
     for epoch in range(1, epochs + 1):
         classifier.train(input_fn=train_input_fn, steps=steps_per_epoch)
     
