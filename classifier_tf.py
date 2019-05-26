@@ -56,13 +56,13 @@ def get_model(features, labels, mode, params):
             _T = epochs * n / batch_size # Number of Steps
             sigma = 0.
             if dp == 'adv_cmp':
-                sigma = _q * np.sqrt(2 * _T * np.log(2.5 * _T / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
+                sigma = np.sqrt(2 * epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
             elif dp == 'zcdp':
-                sigma = _q * np.sqrt(_T / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
+                sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':
-                sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon # RDP
+                sigma = _q * np.sqrt(_T * (2 * np.log(1 / delta) + epsilon)) / epsilon # RDP -- run using rdp_accountant?
             elif dp == 'dp':
-                sigma = _q * _T * np.sqrt(2 * np.log(1.25 * _T / delta)) / epsilon # DP
+                sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon # DP
             print(sigma)
     
             optimizer = dp_optimizer.DPAdamGaussianOptimizer(
