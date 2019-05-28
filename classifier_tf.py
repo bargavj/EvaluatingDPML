@@ -58,7 +58,7 @@ def get_model(features, labels, mode, params):
             C = 1 # Clipping Threshold
             sigma = 0.
             if dp == 'adv_cmp':
-                sigma = np.sqrt(2 * epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
+                sigma = np.sqrt(epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
             elif dp == 'zcdp':
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':

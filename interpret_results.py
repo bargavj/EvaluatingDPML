@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 
-DATA_PATH = 'results/purchase_100/'
+DATA_PATH = 'results/cifar_100/'
 FILE_SUFFIX = '_nn_grad_pert_dp_1000.0.p'
 
 EPS = list(np.arange(0.01, 0.1, 0.01)) + list(np.arange(0.1, 1, 0.1))
@@ -34,7 +34,7 @@ def get_data():
 
 
 def plot_advantage(result):
-	train_acc, baseline_acc, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_1e-8'+'.p', 'rb'))
+	train_acc, baseline_acc, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_1e-4'+'.p', 'rb'))
 	print(train_acc, baseline_acc)
 	color = 0.1
 	for dp in DP:
@@ -59,14 +59,14 @@ def plot_advantage(result):
 			#print(dp, eps, (baseline_acc - np.mean(test_acc_d)) / baseline_acc, np.std(test_acc_d))
 			#print(dp, eps, np.mean(attr_adv_d), np.std(attr_adv_d))
 		#plt.errorbar(EPSILONS, (baseline_acc - test_acc_mean) / baseline_acc, yerr=test_acc_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		plt.errorbar(EPSILONS, attack_adv_mean, yerr=attack_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+		plt.errorbar(EPSILONS, attr_adv_mean, yerr=attr_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
 		color += 0.2
 	
 	bottom, top = plt.ylim()
 	plt.errorbar(EPS, theoretical_limit(EPS), color='black', fmt='--', capsize=2, label='Theoretical Limit')
 	plt.ylim(bottom, top) 
 	plt.text(0.2, 0.9, "$\epsilon$-DP Theoretical Limit", color='black', fontsize=12, rotation=80)
-	plt.yticks(np.arange(0, 1.1, step=0.2))
+	#plt.yticks(np.arange(0, 1.1, step=0.2))
 	
 	plt.xscale('log')
 	plt.xlabel('Privacy Budget ($\epsilon$)', fontsize=12)
