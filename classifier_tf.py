@@ -28,7 +28,16 @@ def get_predictions(predictions):
 
 def get_model(features, labels, mode, params):
     n, n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, l2_ratio, epochs = params
-    if model == 'nn':
+    if model == 'cnn':
+        input_layer = tf.reshape(features['x'], [-1,32,32,3])
+        y = tf.keras.layers.Conv2D(n_hidden, 8, strides=2, padding='same', activation='relu').apply(input_layer)
+        y = tf.keras.layers.MaxPool2D(2, 1).apply(y)
+        y = tf.keras.layers.Conv2D(n_hidden, 4, strides=2, padding='valid', activation='relu').apply(y)
+        y = tf.keras.layers.MacPool2D(2, 1).apply(y)
+        y = tf.keras.layers.Flatten().apply(y)
+        y = tf.keras.layers.Dense(n_hidden, activation='relu').apply(y)
+        logits = tf.keras.layers.Dense(n_out).apply(y)
+    elif model == 'nn':
         #print('Using neural network...')
         input_layer = tf.reshape(features['x'], [-1, n_in])
         y = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(input_layer)
@@ -136,7 +145,7 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
     orders = [1 + x / 100.0 for x in range(1, 1000)] + list(range(12, 1200))
     rdp = compute_rdp(batch_size / train_x.shape[0], noise_multiplier[epsilon], epochs * steps_per_epoch, orders)
     eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
-    print('\nFor delta= %.5f' % delta, ',the epsilon is: %.2f\n' % eps)
+    print('\nFor delta= %.5f' % delta, ', the epsilon is: %.2f\n' % eps)
 
     for epoch in range(1, epochs + 1):
         classifier.train(input_fn=train_input_fn, steps=steps_per_epoch)
