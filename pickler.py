@@ -12,5 +12,5 @@ def normalizeDataset(x):
 with open('train', 'rb') as fo:
     dict = pickle.load(fo, encoding='bytes')
 
-pickle.dump(normalizeDataset(dict[b'data']), open('cnn_cifar_100_features.p', 'wb'))
-pickle.dump(dict[b'fine_labels'], open('cnn_cifar_100_labels.p', 'wb'))
+pickle.dump(normalizeDataset(dict[b'data']), open('', 'wb'))
+pickle.dump(dict[b'fine_labels'], open('', 'wb'))
