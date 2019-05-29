@@ -5,8 +5,10 @@ from privacy.analysis.rdp_accountant import get_privacy_spent
 from privacy.optimizers import dp_optimizer
 import tensorflow as tf
 import numpy as np
+import os
 import argparse
 
+LOG_DIR = 'log'
 # Compatibility with tf 1 and 2 APIs
 try:
   AdamOptimizer = tf.train.AdamOptimizer
@@ -109,7 +111,24 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
     if batch_size > len(train_y):
         batch_size = len(train_y)
 
-    classifier = tf.estimator.Estimator(model_fn=get_model, params = [train_x.shape[0], n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, l2_ratio, epochs])
+    classifier = tf.estimator.Estimator(
+            model_fn=get_model,
+            params = [
+                train_x.shape[0],
+                n_in,
+                n_hidden,
+                n_out,
+                non_linearity,
+                model,
+                privacy,
+                dp,
+                epsilon,
+                delta,
+                batch_size,
+                learning_rate,
+                l2_ratio,
+                epochs
+            ])
 
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
@@ -138,8 +157,18 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
     eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
     print('\nFor delta= %.5f' % delta, ',the epsilon is: %.2f\n' % eps)
 
+    if not os.path.exists(LOG_DIR):
+       os.makedirs(LOG_DIR)
     for epoch in range(1, epochs + 1):
-        classifier.train(input_fn=train_input_fn, steps=steps_per_epoch)
+        hooks = [tf.train.ProfilerHook(output_dir=LOG_DIR,
+            save_steps=30)]
+        # This hook will save traces of what tensorflow is doing
+        # during the training of each model. View the combined trace
+        # by running `combine_traces.py`
+
+        classifier.train(input_fn=train_input_fn,
+                steps=steps_per_epoch,
+                hooks=hooks)
     
         if not silent:
             eval_results = classifier.evaluate(input_fn=train_eval_input_fn)
