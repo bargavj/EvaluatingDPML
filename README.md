@@ -4,7 +4,8 @@ This repository contains code used in the paper (https://arxiv.org/abs/1902.0887
 This code has been adapted from the code base (https://github.com/csong27/membership-inference) of membership inference attack work by Shokri et al. (https://ieeexplore.ieee.org/document/7958568).
 
 ### Pre-Processing Data Sets
-Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder.
+Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. Purchase-100 data set can be downloaded from Kaggle web site (https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data). This can be pre-processed using the preprocess_purchase.py scipt provided in the repository.
+For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder.
 
 ### Training the Non-Private Baseline Models for CIFAR
 
