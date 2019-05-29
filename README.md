@@ -8,9 +8,9 @@ Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. For
 
 ### Training the Non-Private Baseline Models for CIFAR
 
-When you are running the code on a data set for the first time, run `python attack.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
+When you are running the code on a data set for the first time, run `python attack_tf.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
-Run `python attack.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
+Run `python attack_tf.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
 
 For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$dataset`='cifar_100', `$model`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
 
@@ -18,6 +18,18 @@ For training optimal non-private baseline neural network on Purchase-100 data se
 
 ### Training the Differential Private Models
 
-Update the `$dataset`, `$model` and `$lambda` variables accordingly and run `./run_experiment.sh` on terminal. Results will be stored in `results/` folder.
+Run `python attack_tf.py $dataset --target_model=$model --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of attack_tf.py for other command-line arguments.
 
-Update the interpret_results.py file accordingly and run it to obtain the final results.
+### Simulating the Experiments from the Paper 
+
+Update the `$dataset`, `$model` and `$lambda` variables accordingly and run `./run_experiment.sh` on terminal. Results will be stored in `results/$dataset` folder.
+
+Run `interpret_results.py $dataset --model=$model --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+- `--function` prints the plots if set to 1 (default), or gives the membership revelation results if set to 2.
+- `--plot` specifies the type of plot to be printed
+    - 'acc' prints the accuracy loss comparison plot (default)
+    - 'attack' prints the privacy leakage due to Shokri et al. membership inference attack
+    - 'mem' prints the privacy leakage due to Yu et al. membership inference attack
+    - 'attr' prints the privacy leakage due to Yu et al. attribute inference attack
+- `--silent` specifies if the plot values are to be displayed (0) or not (1 - default)
+- `--fpr_threshold` sets the False Positive Rate threshold (refer the paper)

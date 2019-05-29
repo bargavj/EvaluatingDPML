@@ -19,6 +19,7 @@ RESULT_PATH = './results/'
 
 SMALL_VALUE = 0.001
 
+
 import theano.gof.compiledir as cd
 cd.print_compiledir_content()
 
@@ -27,6 +28,9 @@ if not os.path.exists(MODEL_PATH):
 
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
+
+if not os.path.exists(RESULT_PATH):
+    os.makedirs(RESULT_PATH)
 
 
 def load_trained_indices():
@@ -399,13 +403,15 @@ def run_experiment():
         epsilon=args.target_epsilon,
         delta=args.target_delta,
         save=args.save_model)
-    #train_loss *= batch_size / len(train_y)
-
+    
     features = get_random_features(true_x, range(true_x.shape[1]), 5)
     print(features)
     attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
     mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
     attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
+
+    if not os.path.exists(RESULT_PATH+args.train_dataset):
+        os.makedirs(RESULT_PATH+args.train_dataset)
 
     pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
