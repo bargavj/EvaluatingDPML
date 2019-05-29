@@ -7,9 +7,9 @@ do
    do
       for RUN in 1 2 3 4 5
       do
-          python attack_tf.py $DATASET --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp=$DP --target_epsilon=$EPSILON --run=$RUN
-      done
-   done
-done
+          python3 attack_tf.py $DATASET --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp=$DP --target_epsilon=$EPSILON --run=$RUN
+      done || exit
+   done || exit
+done || exit
 echo done
 

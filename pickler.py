@@ -1,4 +1,5 @@
 #used to normalize and set up the raw data into pickle files
+#put this file in the same directory as your train file for the respective data set you want to deal with
 
 import pickle
 import numpy as np
@@ -11,5 +12,5 @@ def normalizeDataset(x):
 with open('train', 'rb') as fo:
     dict = pickle.load(fo, encoding='bytes')
 
-pickle.dump(normalizeDataset(dict[b'data']), open('', 'wb'))
-pickle.dump(dict[b'fine_labels'], open('', 'wb'))
+pickle.dump(normalizeDataset(dict[b'data']), open('cnn_cifar_100_features.p', 'wb'))
+pickle.dump(dict[b'fine_labels'], open('cnn_cifar_100_labels.p', 'wb'))

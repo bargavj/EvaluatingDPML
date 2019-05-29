@@ -33,7 +33,7 @@ def get_model(features, labels, mode, params):
         y = tf.keras.layers.Conv2D(n_hidden, 8, strides=2, padding='same', activation='relu').apply(input_layer)
         y = tf.keras.layers.MaxPool2D(2, 1).apply(y)
         y = tf.keras.layers.Conv2D(n_hidden, 4, strides=2, padding='valid', activation='relu').apply(y)
-        y = tf.keras.layers.MacPool2D(2, 1).apply(y)
+        y = tf.keras.layers.MaxPool2D(2, 1).apply(y)
         y = tf.keras.layers.Flatten().apply(y)
         y = tf.keras.layers.Dense(n_hidden, activation='relu').apply(y)
         logits = tf.keras.layers.Dense(n_out).apply(y)
