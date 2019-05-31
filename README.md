@@ -1,10 +1,15 @@
-# When Relaxations Go Bad: "Differentially-Private" Machine Learning
+# Evaluating Differentially Private Machine Learning in Practice
+
 This repository contains code used in the paper (https://arxiv.org/abs/1902.08874). The code evaluates the utility and privacy leakage of some differential private machine learning algorithms.
 
 This code has been adapted from the code base (https://github.com/csong27/membership-inference) of membership inference attack work by Shokri et al. (https://ieeexplore.ieee.org/document/7958568).
 
+
 ### Pre-Processing Data Sets
-Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder.
+
+Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. Purchase-100 data set can be downloaded from Kaggle web site (https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data). This can be pre-processed using the preprocess_purchase.py scipt provided in the repository.
+For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder.
+
 
 ### Training the Non-Private Baseline Models for CIFAR
 
@@ -16,9 +21,11 @@ For training optimal non-private baseline neural network on CIFAR-100 data set, 
 
 For training optimal non-private baseline neural network on Purchase-100 data set, we set `$dataset`='purchase_100', `$model`='nn' and `$lambda`=1e-8. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
 
+
 ### Training the Differential Private Models
 
 Run `python attack_tf.py $dataset --target_model=$model --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of attack_tf.py for other command-line arguments.
+
 
 ### Simulating the Experiments from the Paper 
 
