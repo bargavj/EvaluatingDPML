@@ -14,6 +14,7 @@ DP_LABELS = ['NC', 'AC', 'zCDP', 'RDP']
 RUNS = range(5)
 
 plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams.update({'font.size': 15})
 
 
 def theoretical_limit(epsilons):
@@ -31,6 +32,10 @@ def get_data():
 			epsilons[eps] = runs
 		result[dp] = epsilons
 	return result
+
+
+def pretty_position(X, Y, pos):
+	return ((X[pos] + X[pos+1]) / 2, (Y[pos] + Y[pos+1]) / 2)
 
 
 def plot_advantage(result):
@@ -82,23 +87,23 @@ def plot_advantage(result):
 		color += 0.2
 
 	plt.xscale('log')
-	plt.xlabel('Privacy Budget ($\epsilon$)', fontsize=12)
+	plt.xlabel('Privacy Budget ($\epsilon$)')
 
 	if args.plot == 'acc':
-		plt.ylabel('Accuracy Loss', fontsize=12)
+		plt.ylabel('Accuracy Loss')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
 	else:
 		bottom, top = plt.ylim()
 		plt.errorbar(EPS, theoretical_limit(EPS), color='black', fmt='--', capsize=2, label='Theoretical Limit')
-		plt.ylim(bottom, top)
-		plt.annotate("$\epsilon$-DP Bound", (EPS[8], theoretical_limit(EPS)[8]), textcoords="offset points", xytext=(-5,0), ha='right')
-		plt.yticks(np.arange(0, 0.41, step=0.1))
-		plt.ylabel('Privacy Leakage', fontsize=12)
+		plt.ylim(bottom, 0.25)
+		plt.annotate("$\epsilon$-DP Bound", pretty_position(EPS, theoretical_limit(EPS), 9), textcoords="offset points", xytext=(5,0), ha='left')
+		plt.yticks(np.arange(0, 0.26, step=0.05))
+		plt.ylabel('Privacy Leakage')
 
-	plt.annotate("RDP", (EPSILONS[8], y["rdp_"][8]), textcoords="offset points", xytext=(-6, 0), ha='right')
-	plt.annotate("zCDP", (EPSILONS[7], y["zcdp_"][7]), textcoords="offset points", xytext=(-3, 0), ha='right')
-	plt.annotate("AC", (EPSILONS[-2], y["adv_cmp_"][-2]), textcoords="offset points", xytext=(6, -6), ha='left')
-	plt.annotate("NC", (EPSILONS[-2], y["dp_"][-2]), textcoords="offset points", xytext=(-6, 0), ha='right')
+	plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 8), textcoords="offset points", xytext=(-10, 0), ha='right')
+	plt.annotate("zCDP", pretty_position(EPSILONS, y["zcdp_"], 7), textcoords="offset points", xytext=(8, 12), ha='right')
+	plt.annotate("AC", pretty_position(EPSILONS, y["adv_cmp_"], -4), textcoords="offset points", xytext=(0, -10), ha='left')
+	plt.annotate("NC", pretty_position(EPSILONS, y["dp_"], -4), textcoords="offset points", xytext=(-10, 0), ha='right')
 
 	plt.show()
 
