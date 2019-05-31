@@ -15,6 +15,7 @@ try:
 except:  # pylint: disable=bare-except
   AdamOptimizer = tf.optimizers.Adam  # pylint: disable=invalid-name
 
+# optimal sigma values for RDP mechanism for the default batch size, training set size, delta and sampling ratio.
 noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219}
 
 
