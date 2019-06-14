@@ -25,10 +25,8 @@ python attack_cross.py $DATASET --save_data=1
 # `parallel` will run the quoted command, replacing each {n} with each value on
 # the n-th line starting with ":::" exactly as if it were a nested for-loop.
 # The start-times, durations, and commands of tasks are stored in joblog.txt.
-parallel -j $SLURM_NTASKS \ # run NTASKS at the same time
-    --delay 1 \ # wait 1 second between starting tasks
-    --joblog joblog.txt --resume-failed \ # re-run failed jobs
-    "srun --exclusive -n1 python $ATTACK_PY $DATASET \
+parallel -j $SLURM_NTASKS --joblog joblog.txt \
+    "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
     --target_model={1} \
     --target_l2_ratio={2} \
     --target_privacy='grad_pert' \
