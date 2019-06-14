@@ -23,7 +23,8 @@ export THEANO_FLAGS=device=cpu
 python attack_cross.py $DATASET --save_data=1
 
 # `parallel` will run the quoted command, replacing each {n} with each value on
-# the n-th line starting with ":::" exactly as if it were a nested for-loop
+# the n-th line starting with ":::" exactly as if it were a nested for-loop.
+# The start-times, durations, and commands of tasks are stored in joblog.txt.
 parallel -j $SLURM_NTASKS \ # run NTASKS at the same time
     --delay 1 \ # wait 1 second between starting tasks
     --joblog joblog.txt --resume-failed \ # re-run failed jobs
@@ -35,7 +36,8 @@ parallel -j $SLURM_NTASKS \ # run NTASKS at the same time
     --target_epsilon={4} \
     --run={5}" \
     ::: 'softmax' 'nn' \
-    :::+ '1e-5' '1e-4' \ # :::+ means paired with previous line
+    :::+ '1e-5' '1e-4' \
+    # '+' means we get (softmax, 1e-5) and (nn, 1e-4) vs. all combinations
     ::: 'dp' 'adv_cmp' 'rdp' 'zcdp' \
     ::: 0.01 0.05 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0 \
     ::: 1 2 3 4 5
