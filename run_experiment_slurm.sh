@@ -13,6 +13,7 @@ ATTACK_PY=attack_cross.py
 
 source /etc/profile.d/modules.sh
 module load anaconda3
+module load parallel
 source activate $2
 
 # flags for compatibility between tensorflow and theano
