@@ -22,6 +22,6 @@ with open('traceEvents.json', 'w') as f:
     f.write(json.dumps(output))
 
 # To view the trace:
-# - Go to "chrome://tracing" in Google Chrome
+# - Go to "chrome://tracing" in Google Chrome or Chromium
 # - Click load
 # - Navigate to ./traceEvents.json
