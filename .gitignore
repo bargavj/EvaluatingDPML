@@ -6,3 +6,5 @@ model/
 results/
 log/
 traceEvents.json
+slurm-*.out
+joblog.txt
