@@ -8,7 +8,9 @@ import numpy as np
 import os
 import argparse
 
+LOGGING = False # enables tf.train.ProfilerHook (see use below)
 LOG_DIR = 'log'
+
 # Compatibility with tf 1 and 2 APIs
 try:
   AdamOptimizer = tf.train.AdamOptimizer
@@ -161,8 +163,11 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
     if not os.path.exists(LOG_DIR):
        os.makedirs(LOG_DIR)
     for epoch in range(1, epochs + 1):
-        hooks = [tf.train.ProfilerHook(output_dir=LOG_DIR,
-            save_steps=30)]
+        hooks = []
+        if LOGGING:
+            hooks.append(tf.train.ProfilerHook(
+                output_dir=LOG_DIR,
+                save_steps=30))
         # This hook will save traces of what tensorflow is doing
         # during the training of each model. View the combined trace
         # by running `combine_traces.py`
