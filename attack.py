@@ -1,4 +1,4 @@
-from classifier_cross import train as train_model, train_private, iterate_minibatches, load_dataset, get_predictions
+from classifier import train as train_model, train_private, iterate_minibatches, load_dataset, get_predictions
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, roc_curve
 from scipy import stats
