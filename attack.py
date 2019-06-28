@@ -61,11 +61,11 @@ def load_attack_data():
     return train_x.astype('float32'), train_y.astype('int32'), test_x.astype('float32'), test_y.astype('int32')
 
 
-def train_target_model(dataset, hold_out_train_data=None, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
+def train_target_model(dataset, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
                        n_hidden=50, model='nn', save=True, privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5):
     train_x, train_y, test_x, test_y = dataset
 
-    classifier, _, _, train_loss, train_acc, test_acc = train_private(dataset, hold_out_train_data, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
+    classifier, _, _, train_loss, train_acc, test_acc = train_private(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
                                batch_size=batch_size, model=model, l2_ratio=l2_ratio, silent=False, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
     # test data for attack model
     attack_x, attack_y = [], []
@@ -215,11 +215,9 @@ def save_data():
         x, test_x, y, test_y = train_test_split(x, y, test_size=args.test_ratio, stratify=y)
 
     # need to partition target and shadow model data
-    assert len(x) > 3 * args.target_data_size # default multiplier = 2
+    assert len(x) > 2 * args.target_data_size
 
-    # doubled target_train_size to get hold out train set
-    target_data_indices, shadow_indices = get_data_indices(len(x), target_train_size=2*args.target_data_size)
-    target_data_indices, hold_out_train_indices = target_data_indices[:args.target_data_size], target_data_indices[args.target_data_size:]
+    target_data_indices, shadow_indices = get_data_indices(len(x), target_train_size=args.target_data_size)
     np.savez(MODEL_PATH + 'data_indices.npz', target_data_indices, shadow_indices)
 
     # target model's data
@@ -231,8 +229,6 @@ def save_data():
         test_y = test_y[:size]
     # save target data
     np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
-    # save hold out train data
-    np.savez(DATA_PATH + 'hold_out_train_data.npz', x[hold_out_train_indices], y[hold_out_train_indices], test_x, test_y)
 
     # shadow model's data
     target_size = len(target_data_indices)
@@ -382,16 +378,12 @@ def get_random_features(data, pool, size):
 def run_experiment():
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
     dataset = load_data('target_data.npz')
-    hold_out_train_data = None
-    if args.pretraining:
-        hold_out_train_data = load_data('hold_out_train_data.npz')
     train_x, train_y, test_x, test_y = dataset
     true_x = np.vstack((train_x, test_x))
     true_y = np.append(train_y, test_y)
     batch_size = args.target_batch_size
     pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
 	    dataset=dataset,
-		hold_out_train_data=hold_out_train_data,
 		epochs=args.target_epochs,
         batch_size=args.target_batch_size,
         learning_rate=args.target_learning_rate,

@@ -101,12 +101,9 @@ def get_model(features, labels, mode, params):
                                           eval_metric_ops=eval_metric_ops)
 
 
-def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
+def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
         silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
     train_x, train_y, test_x, test_y = dataset
-        
-    if hold_out_train_data != None:
-        hold_out_x, hold_out_y, _, _ = hold_out_train_data
 
     n_in = train_x.shape[1]
     n_out = len(np.unique(train_y))

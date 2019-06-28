@@ -90,11 +90,9 @@ def get_softmax_model(n_in, n_out):
     return net
 
 
-def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
+def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
         silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
     train_x, train_y, test_x, test_y = dataset
-    if hold_out_train_data != None:
-        hold_out_x, hold_out_y, _, _ = hold_out_train_data
     n_in = train_x.shape[1]
     n_out = len(np.unique(train_y))
 
@@ -126,28 +124,6 @@ def train(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs
     train_fn = theano.function([input_var, target_var], loss, updates=updates, allow_input_downcast=True)
     test_prediction = lasagne.layers.get_output(output_layer, deterministic=True)
     test_fn = theano.function([input_var], test_prediction, allow_input_downcast=True)
-
-
-    if hold_out_train_data != None:
-        print('Training on hold out train data...')
-        for epoch in range(epochs):
-            loss_ = 0
-            for input_batch, target_batch in iterate_minibatches(hold_out_x, hold_out_y, batch_size):
-                loss_ += train_fn(input_batch, target_batch)
-            loss_ = round(loss_, 3)
-            if not silent:
-                print('Epoch {}, train loss {}'.format(epoch, loss_))
-
-        pred_y = []
-        for input_batch, _ in iterate_minibatches(hold_out_x, hold_out_y, batch_size, shuffle=False):
-            pred = test_fn(input_batch)
-            pred_y.append(np.argmax(pred, axis=1))
-        pred_y = np.concatenate(pred_y)
-
-        if not silent:
-            print('Hold Out Training Accuracy: {}'.format(accuracy_score(hold_out_y, pred_y)))
-            #print(classification_report(hold_out_y, pred_y))
-
 
     #print('Training...')
     train_loss = 0
@@ -275,12 +251,9 @@ def get_model(features, labels, mode, params):
                                           eval_metric_ops=eval_metric_ops)
 
 
-def train_private(dataset, hold_out_train_data=None, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
+def train_private(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
         silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
     train_x, train_y, test_x, test_y = dataset
-        
-    if hold_out_train_data != None:
-        hold_out_x, hold_out_y, _, _ = hold_out_train_data
 
     n_in = train_x.shape[1]
     n_out = len(np.unique(train_y))
