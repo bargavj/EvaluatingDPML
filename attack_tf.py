@@ -432,7 +432,6 @@ if __name__ == '__main__':
     parser.add_argument('--test_ratio', type=float, default=0.2)
     # target and shadow model configuration
     parser.add_argument('--n_shadow', type=int, default=5)
-    parser.add_argument('--pretraining', type=bool, default=False)
     parser.add_argument('--target_data_size', type=int, default=int(1e4))
     parser.add_argument('--target_model', type=str, default='nn')
     parser.add_argument('--target_learning_rate', type=float, default=0.01)
