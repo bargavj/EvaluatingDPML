@@ -9,7 +9,7 @@ if [[ $# -eq 0 ]] ; then # if called with no arguments
 fi
 
 DATASET=$1
-ATTACK_PY=attack_cross.py 
+ATTACK_PY=attack.py
 
 source /etc/profile.d/modules.sh
 module load anaconda3
@@ -20,7 +20,7 @@ source activate $2
 export KMP_DUPLICATE_LIB_OK=TRUE
 export THEANO_FLAGS=device=cpu
 
-python attack_cross.py $DATASET --save_data=1
+python attack.py $DATASET --save_data=1
 
 # `parallel` will run the quoted command, replacing each {n} with each value on
 # the n-th line starting with ":::" exactly as if it were a nested for-loop.
