@@ -162,7 +162,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
 
     true_y = []
     pred_y = []
-    pred_scores = []
+    pred_scores = np.empty(len(test_y))
     true_x = []
     for c in unique_classes:
         #print('Training attack model for class {}...'.format(c))
@@ -176,26 +176,18 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         true_y.append(c_test_y)
         pred_y.append(c_pred_y)
         true_x.append(c_test_x)
-        pred_scores.append(c_pred_scores)
+        # place c_pred_scores where it belongs in pred_scores (train, then test)
+        pred_scores[c_test_indices] = c_pred_scores[:, 1]
 
     print('-' * 10 + 'FINAL EVALUATION' + '-' * 10 + '\n')
     true_y = np.concatenate(true_y)
     pred_y = np.concatenate(pred_y)
     true_x = np.concatenate(true_x)
-    pred_scores = np.concatenate(pred_scores)
     #print('Testing Accuracy: {}'.format(accuracy_score(true_y, pred_y)))
     #print(classification_report(true_y, pred_y))
     fpr, tpr, thresholds = roc_curve(true_y, pred_y, pos_label=1)
     print(fpr, tpr, tpr-fpr)
     attack_adv = tpr[1]-fpr[1]
-    #plt.plot(fpr, tpr)
-
-    # membership
-    fpr, tpr, thresholds = roc_curve(true_y, pred_scores[:,1], pos_label=1)
-    #plt.plot(fpr, tpr)
-    # non-membership
-    fpr, tpr, thresholds = roc_curve(true_y, pred_scores[:,0], pos_label=0)
-    #plt.show()
 
     return attack_adv, pred_scores
 
