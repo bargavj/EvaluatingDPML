@@ -213,7 +213,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     return attack_adv, pred_scores
 
 
-def save_data():
+def save_data(args):
     print('-' * 10 + 'SAVING DATA TO DISK' + '-' * 10 + '\n')
 
     #x, y, test_x, test_y = load_dataset(args.train_feat, args.train_label, args.test_feat, args.test_label) # changed train_label to test_label
@@ -270,7 +270,7 @@ def load_data(data_name):
     return train_x, train_y, test_x, test_y
 
 
-def attack_experiment(attack_test_x, attack_test_y, test_classes,):
+def attack_experiment(args, attack_test_x, attack_test_y, test_classes,):
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
         epochs=args.target_epochs,
@@ -387,7 +387,7 @@ def get_random_features(data, pool, size):
     return list(features)
 
 
-def run_experiment():
+def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
     dataset = load_data('target_data.npz')
     train_x, train_y, test_x, test_y = dataset
@@ -410,7 +410,7 @@ def run_experiment():
     
     features = get_random_features(true_x, range(true_x.shape[1]), 5)
     print(features)
-    attack_adv, attack_pred = attack_experiment(pred_y, membership, test_classes)
+    attack_adv, attack_pred = attack_experiment(args, pred_y, membership, test_classes)
     mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
     attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
 
@@ -455,6 +455,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(vars(args))
     if args.save_data:
-        save_data()
+        save_data(args)
     else:
-    	run_experiment()
+        run_experiment(args)
