@@ -5,6 +5,7 @@ data/
 model/
 results/
 log/
+dataset/
 traceEvents.json
 slurm-*.out
 joblog.txt
