@@ -37,8 +37,8 @@ while read r; do
 done <requirements.txt
 
 # flags for compatibility between tensorflow and theano
-export KMP_DUPLICATE_LIB_OK=TRUE
-export THEANO_FLAGS=device=cpu
+#export KMP_DUPLICATE_LIB_OK=TRUE
+#export THEANO_FLAGS=device=cpu
 
 if [ "$SAVE_DATA" = true ]; then
 	echo "Filling data/ directory"

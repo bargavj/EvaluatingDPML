@@ -1,4 +1,5 @@
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, confusion_matrix
+from scipy import stats
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
@@ -108,7 +109,7 @@ def plot_advantage(result):
 	plt.show()
 
 
-def members_revealed(result):
+def members_revealed_fixed_fpr(result):
 	thres = args.fpr_threshold# 0.01 == 1% FPR, 0.02 == 2% FPR, 0.05 == 5% FPR
 	_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
 	pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
@@ -139,6 +140,62 @@ def _members_revealed(membership, prediction, acceptable_fpr):
 	return set(list(filter(lambda x: x != None, revealed)))
 
 
+def get_ppv(mem, pred):
+	tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
+	return tp / (tp + fp)
+
+
+def ppv_across_runs(mem, pred):
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred >= 0, 1, 0)).ravel()
+	print("0 or more")
+	print(tp, fp, tp / (tp + fp))
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred >= 1, 1, 0)).ravel()
+	print("1 or more")
+	print(tp, fp, tp / (tp + fp))
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred >= 2, 1, 0)).ravel()
+	print("2 or more")
+	print(tp, fp, tp / (tp + fp))
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred >= 3, 1, 0)).ravel()
+	print("3 or more")
+	print(tp, fp, tp / (tp + fp))
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred >= 4, 1, 0)).ravel()
+	print("4 or more")
+	print(tp, fp, tp / (tp + fp))
+	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred == 5, 1, 0)).ravel()
+	print("exactly 5")
+	print(tp, fp, tp / (tp + fp))
+
+
+def members_revealed_fixed_threshold(result):
+	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	print(attack_adv, mem_adv, np.mean(attr_adv))
+	pred = np.where(mem_pred > train_loss, 0, 1)
+	#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
+	#attr_pred = np.array(attr_pred)
+	#membership = np.array(attr_mem).ravel()
+	#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
+	tn, fp, fn, tp = confusion_matrix(membership, pred).ravel()
+	print(tp, tp / (tp + fp))
+	fpr, tpr, thresholds = roc_curve(membership, pred, pos_label=1)
+	print(fpr, tpr, np.max(tpr-fpr))
+	
+	for dp in DP:
+		for eps in EPSILONS:
+			ppv, preds = [], []
+			for run in RUNS:
+				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = result[dp][eps][run]
+				pred = np.where(mem_pred > train_loss, 0, 1)
+				preds.append(pred)				
+				#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
+				#attr_pred = np.array(attr_pred)
+				#membership = np.array(attr_mem).ravel()
+				#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
+				ppv.append(get_ppv(membership, pred))
+			print(dp, eps, np.mean(ppv))
+			preds = np.sum(np.array(preds), axis=0)
+			ppv_across_runs(membership, preds)
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
@@ -157,5 +214,7 @@ if __name__ == '__main__':
 	result = get_data()
 	if args.function == 1:
 		plot_advantage(result) # plot the utility and privacy loss graphs
+	elif args.function == 2:
+		members_revealed_fixed_fpr(result) # return the number of members revealed for different FPR rates
 	else:
-		members_revealed(result) # return the number of members revealed for different FPR rates
+		members_revealed_fixed_threshold(result)

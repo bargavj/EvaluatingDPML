@@ -1,27 +1,22 @@
-from classifier import train as train_model, train_private, iterate_minibatches, load_dataset, get_predictions
+from classifier import train as train_model, get_predictions
+from utilities import prety_print_result, get_ppv_tpr, generate_noise, get_random_features
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score, roc_curve
+from sklearn.metrics import accuracy_score, roc_curve, auc
 from scipy import stats
 import numpy as np
-import theano.tensor as T
 import tensorflow as tf
-import lasagne
-import theano
 import argparse
 import os
 import pickle
 import matplotlib.pyplot as plt
-import random
+import time
 
 MODEL_PATH = './model/'
 DATA_PATH = './data/'
 RESULT_PATH = './results/'
 
-SMALL_VALUE = 0.001
-
-
-import theano.gof.compiledir as cd
-cd.print_compiledir_content()
+# to avoid numerical inconsistency in calculating log
+SMALL_VALUE = 1e-6
 
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
@@ -31,24 +26,6 @@ if not os.path.exists(DATA_PATH):
 
 if not os.path.exists(RESULT_PATH):
     os.makedirs(RESULT_PATH)
-
-
-def load_trained_indices():
-    fname = MODEL_PATH + 'data_indices.npz'
-    with np.load(fname) as f:
-        indices = [f['arr_%d' % i] for i in range(len(f.files))]
-    return indices
-
-
-def get_data_indices(data_size, target_train_size=int(1e4), sample_target_data=True):
-    train_indices = np.arange(data_size)
-    if sample_target_data:
-        target_data_indices = np.random.choice(train_indices, target_train_size, replace=False)
-        shadow_indices = np.setdiff1d(train_indices, target_data_indices)
-    else:
-        target_data_indices = train_indices[:target_train_size]
-        shadow_indices = train_indices[target_train_size:]
-    return target_data_indices, shadow_indices
 
 
 def load_attack_data():
@@ -61,11 +38,13 @@ def load_attack_data():
     return train_x.astype('float32'), train_y.astype('int32'), test_x.astype('float32'), test_y.astype('int32')
 
 
-def train_target_model(dataset, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
-                       n_hidden=50, model='nn', save=True, privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5):
+def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
+                       n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+    if dataset == None:
+        dataset = load_data('target_data.npz')
     train_x, train_y, test_x, test_y = dataset
 
-    classifier, _, _, train_loss, train_acc, test_acc = train_private(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
+    classifier, aux = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
                                batch_size=batch_size, model=model, l2_ratio=l2_ratio, silent=False, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
     # test data for attack model
     attack_x, attack_y = [], []
@@ -78,7 +57,7 @@ def train_target_model(dataset, epochs=100, batch_size=100, learning_rate=0.01, 
 
     predictions = classifier.predict(input_fn=pred_input_fn)
     _, pred_scores = get_predictions(predictions)
-    
+
     attack_x.append(pred_scores)
     attack_y.append(np.ones(train_x.shape[0]))
     
@@ -101,38 +80,50 @@ def train_target_model(dataset, epochs=100, batch_size=100, learning_rate=0.01, 
 
     if save:
         np.savez(MODEL_PATH + 'attack_test_data.npz', attack_x, attack_y)
-        np.savez(MODEL_PATH + 'target_model.npz', *lasagne.layers.get_all_param_values(output_layer))
 
     classes = np.concatenate([train_y, test_y])
-    return attack_x, attack_y, classes, train_loss, classifier, train_acc, test_acc
+    return attack_x, attack_y, classes, classifier, aux
 
 
 def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7,
                         model='nn', save=True):
-    # for getting probabilities
-    input_var = T.matrix('x')
-    # for attack model
     attack_x, attack_y = [], []
     classes = []
     for i in range(n_shadow):
         #print('Training shadow model {}'.format(i))
-        data = load_data('shadow{}_data.npz'.format(i))
-        train_x, train_y, test_x, test_y = data
+        dataset = load_data('shadow{}_data.npz'.format(i))
+        train_x, train_y, test_x, test_y = dataset
+
         # train model
-        output_layer, _, _, _, _, _ = train_model(data, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
+        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
                                    batch_size=batch_size, model=model, l2_ratio=l2_ratio)
-        prob = lasagne.layers.get_output(output_layer, input_var, deterministic=True)
-        prob_fn = theano.function([input_var], prob, allow_input_downcast=True)
         #print('Gather training data for attack model')
         attack_i_x, attack_i_y = [], []
+
         # data used in training, label is 1
-        for batch in iterate_minibatches(train_x, train_y, batch_size, False):
-            attack_i_x.append(prob_fn(batch[0]))
-            attack_i_y.append(np.ones(batch_size))
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={'x': train_x},
+            num_epochs=1,
+            shuffle=False)
+
+        predictions = classifier.predict(input_fn=pred_input_fn)
+        _, pred_scores = get_predictions(predictions)
+    
+        attack_i_x.append(pred_scores)
+        attack_i_y.append(np.ones(train_x.shape[0]))
+    
         # data not used in training, label is 0
-        for batch in iterate_minibatches(test_x, test_y, batch_size, False):
-            attack_i_x.append(prob_fn(batch[0]))
-            attack_i_y.append(np.zeros(batch_size))
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={'x': test_x},
+            num_epochs=1,
+            shuffle=False)
+
+        predictions = classifier.predict(input_fn=pred_input_fn)
+        _, pred_scores = get_predictions(predictions)
+    
+        attack_i_x.append(pred_scores)
+        attack_i_y.append(np.zeros(test_x.shape[0]))
+        
         attack_x += attack_i_x
         attack_y += attack_i_y
         classes.append(np.concatenate([train_y, test_y]))
@@ -142,6 +133,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
     attack_x = attack_x.astype('float32')
     attack_y = attack_y.astype('int32')
     classes = np.concatenate(classes)
+
     if save:
         np.savez(MODEL_PATH + 'attack_train_data.npz', attack_x, attack_y)
 
@@ -152,7 +144,6 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
                        model='nn', l2_ratio=1e-7):
     if dataset is None:
         dataset = load_attack_data()
-
     train_x, train_y, test_x, test_y = dataset
 
     train_classes, test_classes = classes
@@ -162,7 +153,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
 
     true_y = []
     pred_y = []
-    pred_scores = np.empty(len(test_y))
+    pred_scores = []
     true_x = []
     for c in unique_classes:
         #print('Training attack model for class {}...'.format(c))
@@ -171,68 +162,74 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         c_test_indices = test_indices[test_classes == c]
         c_test_x, c_test_y = test_x[c_test_indices], test_y[c_test_indices]
         c_dataset = (c_train_x, c_train_y, c_test_x, c_test_y)
-        _, c_pred_y, c_pred_scores, _, _, _ = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
-                               batch_size=batch_size, model=model, l2_ratio=l2_ratio, non_linearity='relu')
+        classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
+                               batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={'x': c_test_x},
+            num_epochs=1,
+            shuffle=False)
+        predictions = classifier.predict(input_fn=pred_input_fn)
+        c_pred_y, c_pred_scores =  get_predictions(predictions)
         true_y.append(c_test_y)
         pred_y.append(c_pred_y)
         true_x.append(c_test_x)
-        # place c_pred_scores where it belongs in pred_scores (train, then test)
-        pred_scores[c_test_indices] = c_pred_scores[:, 1]
+        pred_scores.append(c_pred_scores)
 
     print('-' * 10 + 'FINAL EVALUATION' + '-' * 10 + '\n')
     true_y = np.concatenate(true_y)
     pred_y = np.concatenate(pred_y)
     true_x = np.concatenate(true_x)
+    pred_scores = np.concatenate(pred_scores)
     #print('Testing Accuracy: {}'.format(accuracy_score(true_y, pred_y)))
     #print(classification_report(true_y, pred_y))
     fpr, tpr, thresholds = roc_curve(true_y, pred_y, pos_label=1)
-    print(fpr, tpr, tpr-fpr)
-    attack_adv = tpr[1]-fpr[1]
-
+    print(fpr, tpr, tpr - fpr)
+    attack_adv = tpr[1] - fpr[1]
     return attack_adv, pred_scores
 
 
 def save_data(args):
     print('-' * 10 + 'SAVING DATA TO DISK' + '-' * 10 + '\n')
 
-    #x, y, test_x, test_y = load_dataset(args.train_feat, args.train_label, args.test_feat, args.test_label) # changed train_label to test_label
+    target_size = args.target_data_size
+
     x = pickle.load(open('dataset/'+args.train_dataset+'_features.p', 'rb'))
     y = pickle.load(open('dataset/'+args.train_dataset+'_labels.p', 'rb'))
-    x, y = np.matrix(x), np.array(y)
+    x = np.matrix(x, dtype=np.float32)
+    y = np.array(y, dtype=np.int32)
+    print(x.shape, y.shape)
 
-    test_x, test_y = None, None
-    y = y.astype('int32')
-    if test_x is None:
-        print('Splitting train/test data with ratio {}/{}'.format(1 - args.test_ratio, args.test_ratio))
-        x, test_x, y, test_y = train_test_split(x, y, test_size=args.test_ratio, stratify=y)
-
-    # need to partition target and shadow model data
-    assert len(x) > 2 * args.target_data_size
-
-    target_data_indices, shadow_indices = get_data_indices(len(x), target_train_size=args.target_data_size)
-    np.savez(MODEL_PATH + 'data_indices.npz', target_data_indices, shadow_indices)
-
-    # target model's data
-    print('Saving data for target model')
-    train_x, train_y = x[target_data_indices], y[target_data_indices]
-    size = len(target_data_indices)
-    if size < len(test_x):
-        test_x = test_x[:size]
-        test_y = test_y[:size]
+    x, train_x, y, train_y = train_test_split(x, y, test_size=target_size, stratify=y)
+    print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
+    x, test_x, y, test_y = train_test_split(x, y, test_size=target_size, stratify=y)
+    print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
+    x, v_train_x, y, v_train_y = train_test_split(x, y, test_size=target_size, stratify=y)
+    print("Validation Training set size:  X: {}, y: {}".format(v_train_x.shape, v_train_y.shape))
+    x, v_test_x, y, v_test_y = train_test_split(x, y, test_size=target_size, stratify=y)
+    print("Validation Test set size:  X: {}, y: {}".format(v_test_x.shape, v_test_y.shape))
+    
     # save target data
+    print('Saving data for target model')
     np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
 
+    # validation data
+    print('Saving validation set data')
+    np.savez(DATA_PATH + 'validation_data.npz', v_train_x, v_train_y, v_test_x, v_test_y)
+
     # shadow model's data
-    target_size = len(target_data_indices)
-    shadow_x, shadow_y = x[shadow_indices], y[shadow_indices]
-    shadow_indices = np.arange(len(shadow_indices))
+    shadow_indices = np.arange(len(x))
+
+    # assert if remaining data is enought for sampling shadow data
+    assert(len(x) >= 2 * target_size)
 
     for i in range(args.n_shadow):
         print('Saving data for shadow model {}'.format(i))
         shadow_i_indices = np.random.choice(shadow_indices, 2 * target_size, replace=False)
-        shadow_i_x, shadow_i_y = shadow_x[shadow_i_indices], shadow_y[shadow_i_indices]
+        shadow_i_x, shadow_i_y = x[shadow_i_indices], y[shadow_i_indices]
         train_x, train_y = shadow_i_x[:target_size], shadow_i_y[:target_size]
         test_x, test_y = shadow_i_x[target_size:], shadow_i_y[target_size:]
+        print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
+        print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
         np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
 
 
@@ -240,8 +237,8 @@ def load_data(data_name):
     with np.load(DATA_PATH + data_name) as f:
         train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
 
-    train_x = np.array(train_x, dtype=np.float32)
-    test_x = np.array(test_x, dtype=np.float32)
+    train_x = np.matrix(train_x, dtype=np.float32)
+    test_x = np.matrix(test_x, dtype=np.float32)
 
     train_y = np.array(train_y, dtype=np.int32)
     test_y = np.array(test_y, dtype=np.int32)
@@ -249,8 +246,7 @@ def load_data(data_name):
     return train_x, train_y, test_x, test_y
 
 
-
-def attack_experiment(args, attack_test_x, attack_test_y, test_classes,):
+def attack_experiment(args, attack_test_x, attack_test_y, test_classes):
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
         epochs=args.target_epochs,
@@ -276,24 +272,126 @@ def attack_experiment(args, attack_test_x, attack_test_y, test_classes,):
 
 
 def membership_inference(true_y, pred_y, membership, train_loss):
-	print('-' * 10 + 'MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
-	pred_membership = np.where(log_loss(true_y, pred_y) <= train_loss, 1, 0)
-	#print(classification_report(membership, pred_membership))
-	fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
-	print(fpr, tpr, tpr-fpr)
-	mem_adv = tpr[1]-fpr[1]
-	#plt.plot(fpr, tpr)
+    print('-' * 10 + 'MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
+    per_instance_loss = np.array(log_loss(true_y, pred_y))
+    pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
+    prety_print_result(membership, pred_membership)
+    fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
+    mem_adv = tpr[1] - fpr[1]
 
-	# membership
-	fpr, tpr, thresholds = roc_curve(membership, max(log_loss(true_y, pred_y)) - log_loss(true_y, pred_y), pos_label=1)
-	#plt.plot(fpr, tpr)
-	# non-membership
-	fpr, tpr, thresholds = roc_curve(membership, log_loss(true_y, pred_y), pos_label=0)
-	#plt.show()
-	return mem_adv, log_loss(true_y, pred_y)
+    #make_histogram(per_instance_loss)
+    #make_membership_box_plot(per_instance_loss)
+    fpr, tpr, thresholds = roc_curve(membership, -per_instance_loss, pos_label=1)
+    fpr, tpr, thresholds = fpr[1:], tpr[1:], thresholds[1:]
+    print(max(tpr-fpr), -thresholds[np.argmax(tpr-fpr)], max(tpr / (tpr+fpr)), -thresholds[np.argmax(tpr / (tpr+fpr))], train_loss)
+
+    print('-' * 10 + 'Best Threshold for High PPV' + '-' * 10 + '\n')
+    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr / (tpr+fpr))], 1, 0)
+    prety_print_result(membership, pred_membership)
+    
+    print('-' * 10 + 'Best Threshold for High Advantange' + '-' * 10 + '\n')
+    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
+    prety_print_result(membership, pred_membership)
+    
+    #make_predictions_box_plot(per_instance_loss, membership, pred_membership)
+
+    return mem_adv, per_instance_loss
 
 
-def attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features):
+def improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
+    print('-' * 10 + 'IMPROVED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
+    v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
+    v_true_x = np.vstack([v_train_x, v_test_x])
+    v_true_y = np.concatenate([v_train_y, v_test_y])
+    
+    print('-' * 10 + 'Evaluating on Validation Set' + '-' * 10 + '\n')
+    v_pred_y, v_membership, v_test_classes, v_classifier, aux = train_target_model(
+        dataset=v_dataset,
+        epochs=args.target_epochs,
+        batch_size=args.target_batch_size,
+        learning_rate=args.target_learning_rate,
+        n_hidden=args.target_n_hidden,
+        l2_ratio=args.target_l2_ratio,
+        model=args.target_model,
+        privacy=args.target_privacy,
+        dp=args.target_dp,
+        epsilon=args.target_epsilon,
+        delta=args.target_delta,
+        save=args.save_model)
+    v_train_loss, v_train_acc, v_test_acc = aux
+
+    v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
+    plt.hist([v_per_instance_loss[:len(v_true_x)//2], v_per_instance_loss[len(v_true_x)//2:]], bins=200)
+    plt.show()
+    fpr, tpr, thresholds = roc_curve(membership, -v_per_instance_loss, pos_label=1)
+    print('AUC: %.4f' % (auc(fpr, tpr)))
+    max_ppv = 0
+    chosen_params = ()
+    for noise_magnitude in [0.01, 0.1, 1, 10]:
+        noise_params = ('gaussian', 'full', noise_magnitude)
+        print(noise_params)
+        pa, pb, pred = inference_using_hypothesis_testing(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
+        print('Pa: %.4f\nPb: %.4f' % (pa, pb))
+        ppv, tpr = get_ppv_tpr(v_membership, pred)
+        prety_print_result(v_membership, pred)
+        if max_ppv < ppv:
+            max_ppv = ppv
+            chosen_params = (noise_params, pa, pb)
+    print(max_ppv, chosen_params)
+
+    print('\n' + '-' * 10 + 'Evaluating on Target Set' + '-' * 10 + '\n')
+    per_instance_loss = np.array(log_loss(true_y, pred_y))
+    noise_params, pa, pb = chosen_params
+    pred = inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa, pb)
+    prety_print_result(membership, pred)
+    return chosen_params
+
+
+def inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa=None, pb=None, max_t=1000):
+    counts = np.zeros(len(true_x))
+    for t in range(max_t):
+        noisy_x = np.copy(true_x) + generate_noise(true_x.shape, true_x.dtype, noise_params)
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={'x': noisy_x},
+            num_epochs=1,
+            shuffle=False)
+        predictions = classifier.predict(input_fn=pred_input_fn)
+        _, pred_y = get_predictions(predictions)
+        noisy_per_instance_loss = np.array(log_loss(true_y, pred_y))
+        counts += np.where(noisy_per_instance_loss > per_instance_loss, 1, 0)
+    plt.hist([counts[:len(true_x)//2], counts[len(true_x)//2:]], bins=max_t//5)
+    plt.show()
+    fpr, tpr, thresholds = roc_curve(np.concatenate([np.ones(10000), np.zeros(10000)]), counts, pos_label=1)
+    print(fpr[1], tpr[1], thresholds[1])
+    print('AUC: %.4f' % (auc(fpr, tpr)))
+    if pa == None and pb == None:
+        pa = np.mean(counts[:len(true_x)//2]) / max_t
+        pb = np.mean(counts[len(true_x)//2:]) / max_t
+        return pa, pb, np.where(counts > pa * max_t, 1, 0)#[1 if stats.binom.pmf(c, max_t, pa) > stats.binom.pmf(c, max_t, pb) else 0 for c in counts]
+    return np.where(counts > pa * max_t, 1, 0)#[1 if stats.binom.pmf(c, max_t, pa) > stats.binom.pmf(c, max_t, pb) else 0 for c in counts]
+
+
+def inference_using_hypothesis_testing_2(pa, pb, true_x, true_y, classifier, per_instance_loss, noise_params, max_t=1000, sig=0.01):
+    pred_y = []
+    for i in range(len(true_x)):
+        c = 0
+        t = 0
+        while(t < max_t and stats.binom.pmf(c, t, pa) >= sig and stats.binom.pmf(c, t, pb) >= sig):
+            noisy_x = np.copy(true_x[i]) + generate_noise(true_x[i].shape, true_x[i].dtype, noise_params)
+            pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+                x={'x': noisy_x},
+                num_epochs=1,
+                shuffle=False)
+            predictions = classifier.predict(input_fn=pred_input_fn)
+            _, pred = get_predictions(predictions)
+            if -np.log(max(pred[0,true_y[i]], SMALL_VALUE)) > per_instance_loss[i]:
+                c += 1
+            t += 1
+        pred_y.append(1 if stats.binom.pmf(c, t, pa) > stats.binom.pmf(c, t, pb) else 0)
+    return pred_y
+
+
+def attribute_inference(true_x, true_y, classifier, train_loss, features):
     print('-' * 10 + 'ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     attr_adv, attr_mem, attr_pred = [], [], []
     for feature in features:
@@ -322,21 +420,20 @@ def attribute_inference(true_x, true_y, batch_size, classifier, train_loss, feat
 
         low_op = log_loss(true_y, low_op)
         high_op = log_loss(true_y, high_op)
-        
+	    
         pred_membership = np.where(stats.norm(0, train_loss).pdf(low_op) >= stats.norm(0, train_loss).pdf(high_op), 0, 1)
         fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
         print(fpr, tpr, tpr-fpr)
         attr_adv.append(tpr[1]-fpr[1])
-        #plt.plot(fpr, tpr)
+		#plt.plot(fpr, tpr)
 
-        # membership
-        fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(high_op) - stats.norm(0, train_loss).pdf(low_op), pos_label=1)
-        #plt.plot(fpr, tpr)
-        # non-membership
-        fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(low_op) - stats.norm(0, train_loss).pdf(high_op), pos_label=0)
-        #plt.show()
-
-        
+		# membership
+        #fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(high_op) - stats.norm(0, train_loss).pdf(low_op), pos_label=1)
+		#plt.plot(fpr, tpr)
+		# non-membership
+        #fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(low_op) - stats.norm(0, train_loss).pdf(high_op), pos_label=0)
+		#plt.show()
+		
         attr_mem.append(membership)
         attr_pred.append(np.vstack((low_op, high_op)))
     return attr_adv, attr_mem, attr_pred
@@ -357,26 +454,18 @@ def log_loss(a, b):
 	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
 
 
-def get_random_features(data, pool, size):
-    random.seed(21312)
-    features = set()
-    while(len(features) < size):
-        feat = random.choice(pool)
-        if len(np.unique(data[:,feat])) > 1:
-            features.add(feat)
-    return list(features)
-
-
 def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
     dataset = load_data('target_data.npz')
+    v_dataset = load_data('validation_data.npz')
     train_x, train_y, test_x, test_y = dataset
     true_x = np.vstack((train_x, test_x))
     true_y = np.append(train_y, test_y)
     batch_size = args.target_batch_size
-    pred_y, membership, test_classes, train_loss, classifier, train_acc, test_acc = train_target_model(
-	    dataset=dataset,
-		epochs=args.target_epochs,
+
+    pred_y, membership, test_classes, classifier, aux = train_target_model(
+        dataset=dataset,
+        epochs=args.target_epochs,
         batch_size=args.target_batch_size,
         learning_rate=args.target_learning_rate,
         n_hidden=args.target_n_hidden,
@@ -387,29 +476,28 @@ def run_experiment(args):
         epsilon=args.target_epsilon,
         delta=args.target_delta,
         save=args.save_model)
-    
-    features = get_random_features(true_x, range(true_x.shape[1]), 5)
-    print(features)
-    attack_adv, attack_pred = attack_experiment(args, pred_y, membership, test_classes)
+    train_loss, train_acc, test_acc = aux
+   
+    #features = get_random_features(true_x, range(true_x.shape[1]), 5)
+    #print(features)
     mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
-    attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, batch_size, classifier, train_loss, features)
+    chosen_params = improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
+    #attack_adv, attack_pred = attack_experiment(args, pred_y, membership, test_classes)
+    #attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, classifier, train_loss, features)
 
-    if not os.path.exists(RESULT_PATH+args.train_dataset):
-        os.makedirs(RESULT_PATH+args.train_dataset)
+    if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
+    	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
 
-    pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #pickle.dump([train_acc, test_acc, train_loss, membership, chosen_params, res, mem_adv, mem_pred], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('train_dataset', type=str)
     parser.add_argument('--run', type=int, default=1)
-    parser.add_argument('--test_feat', type=str, default=None)
-    parser.add_argument('--test_label', type=str, default=None)
     parser.add_argument('--save_model', type=int, default=0)
     parser.add_argument('--save_data', type=int, default=0)
-    # if test not give, train test split configuration
-    parser.add_argument('--test_ratio', type=float, default=0.2)
     # target and shadow model configuration
     parser.add_argument('--n_shadow', type=int, default=5)
     parser.add_argument('--target_data_size', type=int, default=int(1e4))
