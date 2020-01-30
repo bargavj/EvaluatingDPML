@@ -192,6 +192,7 @@ def save_data(args):
     print('-' * 10 + 'SAVING DATA TO DISK' + '-' * 10 + '\n')
 
     target_size = args.target_data_size
+    gamma = args.target_test_train_ratio
 
     x = pickle.load(open('dataset/'+args.train_dataset+'_features.p', 'rb'))
     y = pickle.load(open('dataset/'+args.train_dataset+'_labels.p', 'rb'))
@@ -199,32 +200,26 @@ def save_data(args):
     y = np.array(y, dtype=np.int32)
     print(x.shape, y.shape)
 
+    # assert if data is enough for sampling target data
+    assert(len(x) >= (1 + gamma) * target_size)
     x, train_x, y, train_y = train_test_split(x, y, test_size=target_size, stratify=y)
     print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
-    x, test_x, y, test_y = train_test_split(x, y, test_size=target_size, stratify=y)
+    x, test_x, y, test_y = train_test_split(x, y, test_size=gamma*target_size, stratify=y)
     print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-    x, v_train_x, y, v_train_y = train_test_split(x, y, test_size=target_size, stratify=y)
-    print("Validation Training set size:  X: {}, y: {}".format(v_train_x.shape, v_train_y.shape))
-    x, v_test_x, y, v_test_y = train_test_split(x, y, test_size=target_size, stratify=y)
-    print("Validation Test set size:  X: {}, y: {}".format(v_test_x.shape, v_test_y.shape))
-    
+
     # save target data
     print('Saving data for target model')
     np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
 
-    # validation data
-    print('Saving validation set data')
-    np.savez(DATA_PATH + 'validation_data.npz', v_train_x, v_train_y, v_test_x, v_test_y)
-
     # shadow model's data
     shadow_indices = np.arange(len(x))
 
-    # assert if remaining data is enought for sampling shadow data
-    assert(len(x) >= 2 * target_size)
+    # assert if remaining data is enough for sampling shadow data
+    assert(len(x) >= (1 + gamma) * target_size)
 
     for i in range(args.n_shadow):
         print('Saving data for shadow model {}'.format(i))
-        shadow_i_indices = np.random.choice(shadow_indices, 2 * target_size, replace=False)
+        shadow_i_indices = np.random.choice(shadow_indices, (1 + gamma) * target_size, replace=False)
         shadow_i_x, shadow_i_y = x[shadow_i_indices], y[shadow_i_indices]
         train_x, train_y = shadow_i_x[:target_size], shadow_i_y[:target_size]
         test_x, test_y = shadow_i_x[target_size:], shadow_i_y[target_size:]
@@ -246,7 +241,7 @@ def load_data(data_name):
     return train_x, train_y, test_x, test_y
 
 
-def attack_experiment(args, attack_test_x, attack_test_y, test_classes):
+def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
         epochs=args.target_epochs,
@@ -271,34 +266,29 @@ def attack_experiment(args, attack_test_x, attack_test_y, test_classes):
         classes=(train_classes, test_classes))
 
 
-def membership_inference(true_y, pred_y, membership, train_loss):
+def yeom_membership_inference(true_y, pred_y, membership, train_loss):
     print('-' * 10 + 'MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     per_instance_loss = np.array(log_loss(true_y, pred_y))
     pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
     prety_print_result(membership, pred_membership)
     fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
     mem_adv = tpr[1] - fpr[1]
+    return mem_adv, per_instance_loss
 
+
+def proposed_membership_inference_1(true_x, true_y, v_dataset, pred_y, classifier, membership, args):
+    print('-' * 10 + 'MI Maximizing Advantange' + '-' * 10 + '\n')
     #make_histogram(per_instance_loss)
     #make_membership_box_plot(per_instance_loss)
     fpr, tpr, thresholds = roc_curve(membership, -per_instance_loss, pos_label=1)
-    fpr, tpr, thresholds = fpr[1:], tpr[1:], thresholds[1:]
-    print(max(tpr-fpr), -thresholds[np.argmax(tpr-fpr)], max(tpr / (tpr+fpr)), -thresholds[np.argmax(tpr / (tpr+fpr))], train_loss)
-
-    print('-' * 10 + 'Best Threshold for High PPV' + '-' * 10 + '\n')
-    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr / (tpr+fpr))], 1, 0)
-    prety_print_result(membership, pred_membership)
     
-    print('-' * 10 + 'Best Threshold for High Advantange' + '-' * 10 + '\n')
     pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
     prety_print_result(membership, pred_membership)
     
     #make_predictions_box_plot(per_instance_loss, membership, pred_membership)
 
-    return mem_adv, per_instance_loss
 
-
-def improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
+def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
     print('-' * 10 + 'IMPROVED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
     v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
     v_true_x = np.vstack([v_train_x, v_test_x])
@@ -321,9 +311,11 @@ def improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
     v_train_loss, v_train_acc, v_test_acc = aux
 
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
-    plt.hist([v_per_instance_loss[:len(v_true_x)//2], v_per_instance_loss[len(v_true_x)//2:]], bins=200)
-    plt.show()
+
     fpr, tpr, thresholds = roc_curve(membership, -v_per_instance_loss, pos_label=1)
+    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
+    prety_print_result(membership, pred_membership)
+
     print('AUC: %.4f' % (auc(fpr, tpr)))
     max_ppv = 0
     chosen_params = ()
@@ -391,7 +383,7 @@ def inference_using_hypothesis_testing_2(pa, pb, true_x, true_y, classifier, per
     return pred_y
 
 
-def attribute_inference(true_x, true_y, classifier, train_loss, features):
+def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
     print('-' * 10 + 'ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     attr_adv, attr_mem, attr_pred = [], [], []
     for feature in features:
@@ -457,7 +449,7 @@ def log_loss(a, b):
 def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
     dataset = load_data('target_data.npz')
-    v_dataset = load_data('validation_data.npz')
+    v_dataset = load_data('shadow0_data.npz')
     train_x, train_y, test_x, test_y = dataset
     true_x = np.vstack((train_x, test_x))
     true_y = np.append(train_y, test_y)
@@ -480,10 +472,10 @@ def run_experiment(args):
    
     #features = get_random_features(true_x, range(true_x.shape[1]), 5)
     #print(features)
-    mem_adv, mem_pred = membership_inference(true_y, pred_y, membership, train_loss)
+    mem_adv, mem_pred = yeom_membership_inference(true_y, pred_y, membership, train_loss)
     chosen_params = improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
-    #attack_adv, attack_pred = attack_experiment(args, pred_y, membership, test_classes)
-    #attr_adv, attr_mem, attr_pred = attribute_inference(true_x, true_y, classifier, train_loss, features)
+    #attack_adv, attack_pred = shokri_membership_inference(args, pred_y, membership, test_classes)
+    #attr_adv, attr_mem, attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
 
     if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
     	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
@@ -501,6 +493,7 @@ if __name__ == '__main__':
     # target and shadow model configuration
     parser.add_argument('--n_shadow', type=int, default=5)
     parser.add_argument('--target_data_size', type=int, default=int(1e4))
+    parser.add_argument('--target_test_train_ratio', type=int, default=1)
     parser.add_argument('--target_model', type=str, default='nn')
     parser.add_argument('--target_learning_rate', type=float, default=0.01)
     parser.add_argument('--target_batch_size', type=int, default=200)
