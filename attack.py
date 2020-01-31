@@ -302,85 +302,63 @@ def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
 
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
 
-    chosen_thresholds = loss_threshold_based_mi(v_per_instance_loss, v_membership, alpha)
-
-    max_ppv = 0
-    chosen_params = ()
-    for noise_magnitude in [0.01, 0.1, 1, 10]:
-        noise_params = ('gaussian', 'full', noise_magnitude)
-        print(noise_params)
-        pa, pb, pred = inference_using_hypothesis_testing(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
-        print('Pa: %.4f\nPb: %.4f' % (pa, pb))
-        ppv, tpr = get_ppv_tpr(v_membership, pred)
-        prety_print_result(v_membership, pred)
-        if max_ppv < ppv:
-            max_ppv = ppv
-            chosen_params = (noise_params, pa, pb)
-    print(max_ppv, chosen_params)
-
+    # Attack Method 1
+    chosen_thresholds_1 = get_inference_thresholds(-v_per_instance_loss, v_membership, alpha)
+    
+    # Attack Method 2
+    noise_params = ('gaussian', 'full', 0.1)
+    chosen_thresholds_2, counts = inference_using_change_of_loss_direction(v_true_x, v_true_y, v_classifier, v_per_instance_loss, v_membership, noise_params, alpha)
+    max_adv_thresh, alpha_thresh = chosen_thresholds_2
+    pred_membership = np.where(counts >= max_adv_thresh, 1, 0)
+    prety_print_result(v_membership, pred_membership)
+    
     print('\n' + '-' * 10 + 'Evaluating on Target Set' + '-' * 10 + '\n')
+
+    print('\n' + '-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
     per_instance_loss = np.array(log_loss(true_y, pred_y))
-    noise_params, pa, pb = chosen_params
-    pred = inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa, pb)
-    prety_print_result(membership, pred)
-    return chosen_params
-
-
-def loss_threshold_based_mi(per_instance_loss, membership, alpha, chosen_thresholds=None):
-    if chosen_thresholds != None:
-        max_adv_thresh, alpha_thresh = chosen_thresholds
-    print('-' * 10 + 'MI Maximizing Advantange' + '-' * 10 + '\n')
-    
-    fpr, tpr, thresholds = roc_curve(membership, -per_instance_loss, pos_label=1)
-    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
+    max_adv_thresh, alpha_thresh = chosen_thresholds_1
+    print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
+    pred_membership = np.where(per_instance_loss <= -max_adv_thresh, 1, 0)
+	prety_print_result(membership, pred_membership)
+   	print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
+    pred_membership = np.where(per_instance_loss <= -alpha_thresh, 1, 0)
     prety_print_result(membership, pred_membership)
-    max_adv_thresh = -thresholds[np.argmax(tpr-fpr)]
-    
+
+	print('\n' + '-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
+	_, counts = inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, alpha)
+    max_adv_thresh, alpha_thresh = chosen_thresholds_2
+    print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
+    pred_membership = np.where(counts >= max_adv_thresh, 1, 0)
+    prety_print_result(membership, pred_membership)
+    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
+    pred_membership = np.where(counts >= alpha_thresh, 1, 0)
+    prety_print_result(membership, pred_membership)
+    return chosen_thresholds_1, chosen_thresholds_2
+
+
+def get_inference_thresholds(pred_vector, true_vector, alpha):
+    fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
+    max_adv_thresh = thresholds[np.argmax(tpr-fpr)]
+    for a, b in zip(fpr, thresholds):
+    	if a > alpha:
+    		break
+    	alpha_thresh = b
     return max_adv_thresh, alpha_thresh
 
 
-def inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa=None, pb=None, max_t=1000):
+def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, alpha, max_t=1000):
     counts = np.zeros(len(true_x))
     for t in range(max_t):
         noisy_x = np.copy(true_x) + generate_noise(true_x.shape, true_x.dtype, noise_params)
         pred_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={'x': noisy_x},
-            num_epochs=1,
+            x={'x': noisy_x}, 
+           num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, pred_y = get_predictions(predictions)
         noisy_per_instance_loss = np.array(log_loss(true_y, pred_y))
         counts += np.where(noisy_per_instance_loss > per_instance_loss, 1, 0)
-    plt.hist([counts[:len(true_x)//2], counts[len(true_x)//2:]], bins=max_t//5)
-    plt.show()
-    fpr, tpr, thresholds = roc_curve(np.concatenate([np.ones(10000), np.zeros(10000)]), counts, pos_label=1)
-    print(fpr[1], tpr[1], thresholds[1])
-    print('AUC: %.4f' % (auc(fpr, tpr)))
-    if pa == None and pb == None:
-        pa = np.mean(counts[:len(true_x)//2]) / max_t
-        pb = np.mean(counts[len(true_x)//2:]) / max_t
-        return pa, pb, np.where(counts > pa * max_t, 1, 0)#[1 if stats.binom.pmf(c, max_t, pa) > stats.binom.pmf(c, max_t, pb) else 0 for c in counts]
-    return np.where(counts > pa * max_t, 1, 0)#[1 if stats.binom.pmf(c, max_t, pa) > stats.binom.pmf(c, max_t, pb) else 0 for c in counts]
-
-
-def inference_using_hypothesis_testing_2(pa, pb, true_x, true_y, classifier, per_instance_loss, noise_params, max_t=1000, sig=0.01):
-    pred_y = []
-    for i in range(len(true_x)):
-        c = 0
-        t = 0
-        while(t < max_t and stats.binom.pmf(c, t, pa) >= sig and stats.binom.pmf(c, t, pb) >= sig):
-            noisy_x = np.copy(true_x[i]) + generate_noise(true_x[i].shape, true_x[i].dtype, noise_params)
-            pred_input_fn = tf.estimator.inputs.numpy_input_fn(
-                x={'x': noisy_x},
-                num_epochs=1,
-                shuffle=False)
-            predictions = classifier.predict(input_fn=pred_input_fn)
-            _, pred = get_predictions(predictions)
-            if -np.log(max(pred[0,true_y[i]], SMALL_VALUE)) > per_instance_loss[i]:
-                c += 1
-            t += 1
-        pred_y.append(1 if stats.binom.pmf(c, t, pa) > stats.binom.pmf(c, t, pb) else 0)
-    return pred_y
+    return get_inference_thresholds(counts, membership, alpha), counts
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
