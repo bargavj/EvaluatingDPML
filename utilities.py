@@ -5,7 +5,7 @@ from sklearn.metrics import confusion_matrix
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
-    print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp+fn) - fp / (tn+fp)))
+    print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
 
 def get_ppv_tpr(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()

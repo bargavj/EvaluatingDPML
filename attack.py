@@ -242,6 +242,7 @@ def load_data(data_name):
 
 
 def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
+    print('-' * 10 + 'SHOKRI\'S MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
         epochs=args.target_epochs,
@@ -267,7 +268,7 @@ def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes
 
 
 def yeom_membership_inference(true_y, pred_y, membership, train_loss):
-    print('-' * 10 + 'MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
+    print('-' * 10 + 'YEOM\'S MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     per_instance_loss = np.array(log_loss(true_y, pred_y))
     pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
     prety_print_result(membership, pred_membership)
@@ -276,20 +277,9 @@ def yeom_membership_inference(true_y, pred_y, membership, train_loss):
     return mem_adv, per_instance_loss
 
 
-def proposed_membership_inference_1(true_x, true_y, v_dataset, pred_y, classifier, membership, args):
-    print('-' * 10 + 'MI Maximizing Advantange' + '-' * 10 + '\n')
-    #make_histogram(per_instance_loss)
-    #make_membership_box_plot(per_instance_loss)
-    fpr, tpr, thresholds = roc_curve(membership, -per_instance_loss, pos_label=1)
-    
-    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
-    prety_print_result(membership, pred_membership)
-    
-    #make_predictions_box_plot(per_instance_loss, membership, pred_membership)
-
-
 def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
-    print('-' * 10 + 'IMPROVED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
+    alpha = args.attack_fpr_threshold
+    print('-' * 10 + 'PROPOSED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
     v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
     v_true_x = np.vstack([v_train_x, v_test_x])
     v_true_y = np.concatenate([v_train_y, v_test_y])
@@ -312,11 +302,8 @@ def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
 
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
 
-    fpr, tpr, thresholds = roc_curve(membership, -v_per_instance_loss, pos_label=1)
-    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
-    prety_print_result(membership, pred_membership)
+    chosen_thresholds = loss_threshold_based_mi(v_per_instance_loss, v_membership, alpha)
 
-    print('AUC: %.4f' % (auc(fpr, tpr)))
     max_ppv = 0
     chosen_params = ()
     for noise_magnitude in [0.01, 0.1, 1, 10]:
@@ -337,6 +324,19 @@ def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
     pred = inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa, pb)
     prety_print_result(membership, pred)
     return chosen_params
+
+
+def loss_threshold_based_mi(per_instance_loss, membership, alpha, chosen_thresholds=None):
+    if chosen_thresholds != None:
+        max_adv_thresh, alpha_thresh = chosen_thresholds
+    print('-' * 10 + 'MI Maximizing Advantange' + '-' * 10 + '\n')
+    
+    fpr, tpr, thresholds = roc_curve(membership, -per_instance_loss, pos_label=1)
+    pred_membership = np.where(per_instance_loss <= -thresholds[np.argmax(tpr-fpr)], 1, 0)
+    prety_print_result(membership, pred_membership)
+    max_adv_thresh = -thresholds[np.argmax(tpr-fpr)]
+    
+    return max_adv_thresh, alpha_thresh
 
 
 def inference_using_hypothesis_testing(true_x, true_y, classifier, per_instance_loss, noise_params, pa=None, pb=None, max_t=1000):
@@ -384,7 +384,7 @@ def inference_using_hypothesis_testing_2(pa, pb, true_x, true_y, classifier, per
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
-    print('-' * 10 + 'ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
+    print('-' * 10 + 'YEOM\'S ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     attr_adv, attr_mem, attr_pred = [], [], []
     for feature in features:
         low_op, high_op = [], []
@@ -473,7 +473,7 @@ def run_experiment(args):
     #features = get_random_features(true_x, range(true_x.shape[1]), 5)
     #print(features)
     mem_adv, mem_pred = yeom_membership_inference(true_y, pred_y, membership, train_loss)
-    chosen_params = improved_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
+    chosen_params = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
     #attack_adv, attack_pred = shokri_membership_inference(args, pred_y, membership, test_classes)
     #attr_adv, attr_mem, attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
 
@@ -511,6 +511,7 @@ if __name__ == '__main__':
     parser.add_argument('--attack_n_hidden', type=int, default=64)
     parser.add_argument('--attack_epochs', type=int, default=100)
     parser.add_argument('--attack_l2_ratio', type=float, default=1e-6)
+    parser.add_argument('--attack_fpr_threshold', type=float, default=0.01)
 
     # parse configuration
     args = parser.parse_args()
