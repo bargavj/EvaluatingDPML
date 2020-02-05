@@ -5,10 +5,15 @@ from sklearn.metrics import confusion_matrix
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
-    print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
+    if tp == fp == 0:
+    	print('PPV: nan (Error: Divide by Zero)\nAdvantage: 0.0000')
+    else:
+    	print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
 
 def get_ppv_tpr(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
+    if tp == fp == 0:
+    	return np.nan, 0
     return tp / (tp + fp), tp / (tp + fn)
 
 def loss_range():

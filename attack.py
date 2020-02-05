@@ -50,7 +50,7 @@ def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0
     attack_x, attack_y = [], []
 
     # data used in training, label is 1
-    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+    pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         num_epochs=1,
         shuffle=False)
@@ -62,7 +62,7 @@ def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0
     attack_y.append(np.ones(train_x.shape[0]))
     
     # data not used in training, label is 0
-    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+    pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': test_x},
         num_epochs=1,
         shuffle=False)
@@ -101,7 +101,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
         attack_i_x, attack_i_y = [], []
 
         # data used in training, label is 1
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': train_x},
             num_epochs=1,
             shuffle=False)
@@ -113,7 +113,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
         attack_i_y.append(np.ones(train_x.shape[0]))
     
         # data not used in training, label is 0
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': test_x},
             num_epochs=1,
             shuffle=False)
@@ -182,8 +182,8 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     pred_scores = np.concatenate(pred_scores)
     #print('Testing Accuracy: {}'.format(accuracy_score(true_y, pred_y)))
     #print(classification_report(true_y, pred_y))
+    prety_print_result(true_y, pred_y)
     fpr, tpr, thresholds = roc_curve(true_y, pred_y, pos_label=1)
-    print(fpr, tpr, tpr - fpr)
     attack_adv = tpr[1] - fpr[1]
     return attack_adv, pred_scores
 
@@ -211,18 +211,13 @@ def save_data(args):
     print('Saving data for target model')
     np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
 
-    # shadow model's data
-    shadow_indices = np.arange(len(x))
-
     # assert if remaining data is enough for sampling shadow data
     assert(len(x) >= (1 + gamma) * target_size)
 
+    # save shadow data
     for i in range(args.n_shadow):
         print('Saving data for shadow model {}'.format(i))
-        shadow_i_indices = np.random.choice(shadow_indices, (1 + gamma) * target_size, replace=False)
-        shadow_i_x, shadow_i_y = x[shadow_i_indices], y[shadow_i_indices]
-        train_x, train_y = shadow_i_x[:target_size], shadow_i_y[:target_size]
-        test_x, test_y = shadow_i_x[target_size:], shadow_i_y[target_size:]
+        train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=gamma*target_size, stratify=y)
         print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
         print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
         np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
@@ -277,14 +272,12 @@ def yeom_membership_inference(true_y, pred_y, membership, train_loss):
     return mem_adv, per_instance_loss
 
 
-def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
-    alpha = args.attack_fpr_threshold
+def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, fpr_thresholds, args):
     print('-' * 10 + 'PROPOSED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
     v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
     v_true_x = np.vstack([v_train_x, v_test_x])
     v_true_y = np.concatenate([v_train_y, v_test_y])
     
-    print('-' * 10 + 'Evaluating on Validation Set' + '-' * 10 + '\n')
     v_pred_y, v_membership, v_test_classes, v_classifier, aux = train_target_model(
         dataset=v_dataset,
         epochs=args.target_epochs,
@@ -303,54 +296,56 @@ def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
 
     # Attack Method 1
-    chosen_thresholds_1 = get_inference_thresholds(-v_per_instance_loss, v_membership, alpha)
+    chosen_thresholds_1 = get_inference_thresholds(-v_per_instance_loss, v_membership, fpr_thresholds)
     
-    # Attack Method 2
-    noise_params = ('gaussian', 'full', 0.1)
-    chosen_thresholds_2, counts = inference_using_change_of_loss_direction(v_true_x, v_true_y, v_classifier, v_per_instance_loss, v_membership, noise_params, alpha)
-    max_adv_thresh, alpha_thresh = chosen_thresholds_2
-    pred_membership = np.where(counts >= max_adv_thresh, 1, 0)
-    prety_print_result(v_membership, pred_membership)
-    
-    print('\n' + '-' * 10 + 'Evaluating on Target Set' + '-' * 10 + '\n')
-
     print('\n' + '-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
     per_instance_loss = np.array(log_loss(true_y, pred_y))
-    max_adv_thresh, alpha_thresh = chosen_thresholds_1
+    max_adv_thresh, alpha_threshs = chosen_thresholds_1
     print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
     pred_membership = np.where(per_instance_loss <= -max_adv_thresh, 1, 0)
-	prety_print_result(membership, pred_membership)
-   	print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    pred_membership = np.where(per_instance_loss <= -alpha_thresh, 1, 0)
     prety_print_result(membership, pred_membership)
+    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
+    for i in range(len(fpr_thresholds)):
+    	print('FPR = %f' % fpr_thresholds[i])
+    	pred_membership = np.where(per_instance_loss <= -alpha_threshs[i], 1, 0)
+    	prety_print_result(membership, pred_membership)
 
-	print('\n' + '-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
-	_, counts = inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, alpha)
-    max_adv_thresh, alpha_thresh = chosen_thresholds_2
+    # Attack Method 2
+    noise_params = ('gaussian', 'full', 0.01) # try 0.01 or 0.1 for gaussian full
+    chosen_thresholds_2, counts = inference_using_change_of_loss_direction(v_true_x, v_true_y, v_classifier, v_per_instance_loss, v_membership, noise_params, fpr_thresholds)
+    
+    print('\n' + '-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
+    _, counts = inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, fpr_thresholds)
+    max_adv_thresh, alpha_threshs = chosen_thresholds_2
     print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
     pred_membership = np.where(counts >= max_adv_thresh, 1, 0)
     prety_print_result(membership, pred_membership)
     print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    pred_membership = np.where(counts >= alpha_thresh, 1, 0)
-    prety_print_result(membership, pred_membership)
+    for i in range(len(fpr_thresholds)):
+    	print('FPR = %f' % fpr_thresholds[i])
+    	pred_membership = np.where(counts >= alpha_threshs[i], 1, 0)
+    	prety_print_result(membership, pred_membership)
     return chosen_thresholds_1, chosen_thresholds_2
 
 
-def get_inference_thresholds(pred_vector, true_vector, alpha):
+def get_inference_thresholds(pred_vector, true_vector, fpr_thresholds):
     fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
     max_adv_thresh = thresholds[np.argmax(tpr-fpr)]
-    for a, b in zip(fpr, thresholds):
-    	if a > alpha:
-    		break
-    	alpha_thresh = b
-    return max_adv_thresh, alpha_thresh
+    alpha_threshs = []
+    for alpha in fpr_thresholds:
+    	for a, b in zip(fpr, thresholds):
+    		if a > alpha:
+    			break
+    		alpha_thresh = b
+    	alpha_threshs.append(alpha_thresh)
+    return max_adv_thresh, alpha_threshs
 
 
-def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, alpha, max_t=1000):
+def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, fpr_thresholds, max_t=1000):
     counts = np.zeros(len(true_x))
     for t in range(max_t):
         noisy_x = np.copy(true_x) + generate_noise(true_x.shape, true_x.dtype, noise_params)
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': noisy_x}, 
            num_epochs=1,
             shuffle=False)
@@ -358,7 +353,7 @@ def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_ins
         _, pred_y = get_predictions(predictions)
         noisy_per_instance_loss = np.array(log_loss(true_y, pred_y))
         counts += np.where(noisy_per_instance_loss > per_instance_loss, 1, 0)
-    return get_inference_thresholds(counts, membership, alpha), counts
+    return get_inference_thresholds(counts, membership, fpr_thresholds), counts
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
@@ -369,7 +364,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
 
         low_data, high_data, membership = getAttributeVariations(true_x, feature)
 
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': low_data},
             num_epochs=1,
             shuffle=False)
@@ -377,7 +372,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, low_op = get_predictions(predictions)
         
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': high_data},
             num_epochs=1,
             shuffle=False)
@@ -450,8 +445,9 @@ def run_experiment(args):
    
     #features = get_random_features(true_x, range(true_x.shape[1]), 5)
     #print(features)
+    fpr_thresholds = [0.01, 0.05, 0.1]
     mem_adv, mem_pred = yeom_membership_inference(true_y, pred_y, membership, train_loss)
-    chosen_params = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
+    chosen_params = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, fpr_thresholds, args)
     #attack_adv, attack_pred = shokri_membership_inference(args, pred_y, membership, test_classes)
     #attr_adv, attr_mem, attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
 
@@ -466,6 +462,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('train_dataset', type=str)
     parser.add_argument('--run', type=int, default=1)
+    parser.add_argument('--use_cpu', type=int, default=1)
     parser.add_argument('--save_model', type=int, default=0)
     parser.add_argument('--save_data', type=int, default=0)
     # target and shadow model configuration
@@ -489,11 +486,15 @@ if __name__ == '__main__':
     parser.add_argument('--attack_n_hidden', type=int, default=64)
     parser.add_argument('--attack_epochs', type=int, default=100)
     parser.add_argument('--attack_l2_ratio', type=float, default=1e-6)
-    parser.add_argument('--attack_fpr_threshold', type=float, default=0.01)
 
     # parse configuration
     args = parser.parse_args()
     print(vars(args))
+    
+    # Flag to disable GPU: comment this statement when using GPU
+    if args.use_cpu:
+    	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
     if args.save_data:
         save_data(args)
     else:

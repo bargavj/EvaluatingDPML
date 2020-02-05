@@ -1,7 +1,7 @@
 from sklearn.metrics import classification_report, accuracy_score
-from privacy.analysis.rdp_accountant import compute_rdp
-from privacy.analysis.rdp_accountant import get_privacy_spent
-from privacy.optimizers import dp_optimizer
+from tensorflow_privacy.privacy.analysis.rdp_accountant import compute_rdp
+from tensorflow_privacy.privacy.analysis.rdp_accountant import get_privacy_spent
+from tensorflow_privacy.privacy.optimizers import dp_optimizer
 import tensorflow as tf
 import numpy as np
 import os
@@ -10,16 +10,16 @@ import math
 LOGGING = False # enables tf.train.ProfilerHook (see use below)
 LOG_DIR = 'log'
 
-# Compatibility with tf 1 and 2 APIs
-try:
-  AdamOptimizer = tf.train.AdamOptimizer
-except:  # pylint: disable=bare-except
-  AdamOptimizer = tf.optimizers.Adam  # pylint: disable=invalid-name
+AdamOptimizer = tf.compat.v1.train.AdamOptimizer
 
-# optimal sigma values for RDP mechanism for the batch size = 200, training set size = 10000, delta = 1e-5.
-#noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219}
-# optimal sigma values for RDP mechanism for the batch size = 2000, training set size = 10000, delta = 1e-5.
-noise_multiplier = {0.1:205, 0.5:44, 1:22, 5:4.85, 10:2.7, 50:0.92, 100:0.65}
+# optimal sigma values for RDP mechanism for the batch size = 200, epochs = 100, training set size = 10000, delta = 1e-5.
+noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219, 1001:0.001}
+# optimal sigma values for GDP mechanism for the batch size = 200, epochs = 100, training set size = 10000, delta = 1e-5.
+gdp_noise_multiplier = {0.01:350, 0.05:82, 0.1:44, 0.5:10, 1:5.4, 5:1.43, 10:0.955, 50:0.564, 100:0.498}
+# optimal sigma values for RDP mechanism for the batch size = 200, epochs = 30, training set size = 10000, delta = 1e-5.
+#noise_multiplier = {0.1:36, 0.5:7.6, 1:3.9, 5:1.1, 10:0.79, 50:0.445, 100:0.356}
+# optimal sigma values for GDP mechanism for the batch size = 200, epochs = 30, training set size = 10000, delta = 1e-5.
+#gdp_noise_multiplier = {0.1:24, 0.5:5.5, 1:3, 5:0.94, 10:0.701, 50:0.481, 100:0.438}
 
 def get_predictions(predictions):
     pred_y, pred_scores = [], []
@@ -29,8 +29,6 @@ def get_predictions(predictions):
         pred_scores.append(val['probabilities'])
         val = next(predictions, None)
     return np.array(pred_y), np.matrix(pred_scores)
-    #preds = list(predictions)
-    #return np.array(list(map(lambda x: x['classes'], preds))), np.matrix(list(map(lambda x: x['probabilities'], preds)))
 
 
 def get_model(features, labels, mode, params):
@@ -61,7 +59,7 @@ def get_model(features, labels, mode, params):
     if mode == tf.estimator.ModeKeys.TRAIN:
         
         if privacy == 'grad_pert':
-            C = 1 # Clipping Threshold - def : 1
+            C = 4 # Clipping Threshold - def : 1
             sigma = 0.
             if dp == 'adv_cmp':
                 sigma = np.sqrt(epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
@@ -69,6 +67,8 @@ def get_model(features, labels, mode, params):
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
             elif dp == 'rdp':
                 sigma = noise_multiplier[epsilon]
+            elif dp == 'gdp':
+                sigma = gdp_noise_multiplier[epsilon]
             elif dp == 'dp':
                 sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon # DP
             print(sigma)
@@ -83,7 +83,7 @@ def get_model(features, labels, mode, params):
         else:
             optimizer = AdamOptimizer(learning_rate=learning_rate)
             opt_loss = scalar_loss
-        global_step = tf.train.get_global_step()
+        global_step = tf.compat.v1.train.get_global_step()
         train_op = optimizer.minimize(loss=opt_loss, global_step=global_step)
         return tf.estimator.EstimatorSpec(mode=mode,
                                           loss=scalar_loss,
@@ -92,7 +92,7 @@ def get_model(features, labels, mode, params):
     elif mode == tf.estimator.ModeKeys.EVAL:
         eval_metric_ops = {
             'accuracy':
-                tf.metrics.accuracy(
+                tf.compat.v1.metrics.accuracy(
                     labels=labels,
                      predictions=predictions["classes"])
         }
@@ -131,18 +131,18 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
                 epochs
             ])
 
-    train_input_fn = tf.estimator.inputs.numpy_input_fn(
+    train_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         y=train_y,
         batch_size=batch_size,
         num_epochs=epochs,
         shuffle=True)
-    train_eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+    train_eval_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         y=train_y,
         num_epochs=1,
         shuffle=False)
-    test_eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+    test_eval_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': test_x},
         y=test_y,
         num_epochs=1,
