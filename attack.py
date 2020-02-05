@@ -491,7 +491,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(vars(args))
     
-    # Flag to disable GPU: comment this statement when using GPU
+    # Flag to disable GPU
     if args.use_cpu:
     	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
