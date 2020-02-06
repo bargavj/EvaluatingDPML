@@ -1,20 +1,26 @@
+from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import random
-from sklearn.metrics import confusion_matrix
 
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
     if tp == fp == 0:
-    	print('PPV: nan (Error: Divide by Zero)\nAdvantage: 0.0000')
+    	print('PPV: nan\nAdvantage: 0.0000')
     else:
     	print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
 
-def get_ppv_tpr(mem, pred):
-    tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
-    if tp == fp == 0:
-    	return np.nan, 0
-    return tp / (tp + fp), tp / (tp + fn)
+def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
+    fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
+    # return inference threshold corresponding to maximum advantage
+    if fpr_threshold == None:
+    	return thresholds[np.argmax(tpr-fpr)]
+    # return inference threshold corresponding to fpr_threshold
+    for a, b in zip(fpr, thresholds):
+    	if a > fpr_threshold:
+    		break
+    	alpha_thresh = b
+    return alpha_thresh
 
 def loss_range():
     return list(np.arange(0, 0.001, 0.0001)) + list(np.arange(0.001, 0.01, 0.001)) + list(np.arange(0.01, 0.1, 0.01)) + list(np.arange(0.1, 1, 0.1)) + list(np.arange(1, 10, 1)) + [10, 20]

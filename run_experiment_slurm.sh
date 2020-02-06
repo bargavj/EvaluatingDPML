@@ -36,10 +36,6 @@ while read r; do
 	pip install $r
 done <requirements.txt
 
-# flags for compatibility between tensorflow and theano
-#export KMP_DUPLICATE_LIB_OK=TRUE
-#export THEANO_FLAGS=device=cpu
-
 if [ "$SAVE_DATA" = true ]; then
 	echo "Filling data/ directory"
 	python $ATTACK_PY $DATASET --save_data=1

@@ -5,7 +5,6 @@ from tensorflow_privacy.privacy.optimizers import dp_optimizer
 import tensorflow as tf
 import numpy as np
 import os
-import math
 
 LOGGING = False # enables tf.train.ProfilerHook (see use below)
 LOG_DIR = 'log'

@@ -1,7 +1,7 @@
 from classifier import train as train_model, get_predictions
-from utilities import prety_print_result, get_ppv_tpr, generate_noise, get_random_features
+from utilities import prety_print_result, get_inference_threshold, generate_noise, get_random_features
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve, auc
+from sklearn.metrics import accuracy_score, roc_curve
 from scipy import stats
 import numpy as np
 import tensorflow as tf
@@ -9,7 +9,6 @@ import argparse
 import os
 import pickle
 import matplotlib.pyplot as plt
-import time
 
 MODEL_PATH = './model/'
 DATA_PATH = './data/'
@@ -272,7 +271,7 @@ def yeom_membership_inference(true_y, pred_y, membership, train_loss):
     return mem_adv, per_instance_loss
 
 
-def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, fpr_thresholds, args):
+def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args):
     print('-' * 10 + 'PROPOSED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
     v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
     v_true_x = np.vstack([v_train_x, v_test_x])
@@ -295,53 +294,43 @@ def proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier,
 
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
 
+    fpr_thresholds = [0.01, 0.05, 0.1] # can be edited to evaluate for different FPR thresholds
+
     # Attack Method 1
-    chosen_thresholds_1 = get_inference_thresholds(-v_per_instance_loss, v_membership, fpr_thresholds)
-    
     print('\n' + '-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
+    max_adv_thresh = get_inference_threshold(-v_per_instance_loss, v_membership)
+    alpha_threshs = [get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold) for fpr_threshold in fpr_thresholds]
+    
     per_instance_loss = np.array(log_loss(true_y, pred_y))
-    max_adv_thresh, alpha_threshs = chosen_thresholds_1
     print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
     pred_membership = np.where(per_instance_loss <= -max_adv_thresh, 1, 0)
     prety_print_result(membership, pred_membership)
     print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
     for i in range(len(fpr_thresholds)):
-    	print('FPR = %f' % fpr_thresholds[i])
+    	print('FPR = %.2f' % fpr_thresholds[i])
     	pred_membership = np.where(per_instance_loss <= -alpha_threshs[i], 1, 0)
     	prety_print_result(membership, pred_membership)
 
     # Attack Method 2
-    noise_params = ('gaussian', 'full', 0.01) # try 0.01 or 0.1 for gaussian full
-    chosen_thresholds_2, counts = inference_using_change_of_loss_direction(v_true_x, v_true_y, v_classifier, v_per_instance_loss, v_membership, noise_params, fpr_thresholds)
-    
     print('\n' + '-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
-    _, counts = inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, fpr_thresholds)
-    max_adv_thresh, alpha_threshs = chosen_thresholds_2
+    noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
+    v_counts = loss_increase_counts(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
+    max_adv_thresh = get_inference_threshold(v_counts, v_membership)
+    alpha_threshs = [get_inference_threshold(v_counts, v_membership, fpr_threshold) for fpr_threshold in fpr_thresholds]
+    
+    counts = loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params)
     print('-' * 5 + 'Inference Maximizing Advantange' + '-' * 5 + '\n')
     pred_membership = np.where(counts >= max_adv_thresh, 1, 0)
     prety_print_result(membership, pred_membership)
     print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
     for i in range(len(fpr_thresholds)):
-    	print('FPR = %f' % fpr_thresholds[i])
+    	print('FPR = %.2f' % fpr_thresholds[i])
     	pred_membership = np.where(counts >= alpha_threshs[i], 1, 0)
     	prety_print_result(membership, pred_membership)
-    return chosen_thresholds_1, chosen_thresholds_2
+    return v_membership, v_per_instance_loss, v_counts, counts
 
 
-def get_inference_thresholds(pred_vector, true_vector, fpr_thresholds):
-    fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
-    max_adv_thresh = thresholds[np.argmax(tpr-fpr)]
-    alpha_threshs = []
-    for alpha in fpr_thresholds:
-    	for a, b in zip(fpr, thresholds):
-    		if a > alpha:
-    			break
-    		alpha_thresh = b
-    	alpha_threshs.append(alpha_thresh)
-    return max_adv_thresh, alpha_threshs
-
-
-def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_instance_loss, membership, noise_params, fpr_thresholds, max_t=1000):
+def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=1000):
     counts = np.zeros(len(true_x))
     for t in range(max_t):
         noisy_x = np.copy(true_x) + generate_noise(true_x.shape, true_x.dtype, noise_params)
@@ -353,12 +342,12 @@ def inference_using_change_of_loss_direction(true_x, true_y, classifier, per_ins
         _, pred_y = get_predictions(predictions)
         noisy_per_instance_loss = np.array(log_loss(true_y, pred_y))
         counts += np.where(noisy_per_instance_loss > per_instance_loss, 1, 0)
-    return get_inference_thresholds(counts, membership, fpr_thresholds), counts
+    return counts
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
     print('-' * 10 + 'YEOM\'S ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
-    attr_adv, attr_mem, attr_pred = [], [], []
+    yeom_attr_adv, yeom_attr_mem, yeom_attr_pred = [], [], []
     for feature in features:
         low_op, high_op = [], []
 
@@ -389,7 +378,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
         pred_membership = np.where(stats.norm(0, train_loss).pdf(low_op) >= stats.norm(0, train_loss).pdf(high_op), 0, 1)
         fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
         print(fpr, tpr, tpr-fpr)
-        attr_adv.append(tpr[1]-fpr[1])
+        yeom_attr_adv.append(tpr[1]-fpr[1])
 		#plt.plot(fpr, tpr)
 
 		# membership
@@ -399,9 +388,9 @@ def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
         #fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(low_op) - stats.norm(0, train_loss).pdf(high_op), pos_label=0)
 		#plt.show()
 		
-        attr_mem.append(membership)
-        attr_pred.append(np.vstack((low_op, high_op)))
-    return attr_adv, attr_mem, attr_pred
+        yeom_attr_mem.append(membership)
+        yeom_attr_pred.append(np.vstack((low_op, high_op)))
+    return yeom_attr_adv, yeom_attr_mem, yeom_attr_pred
 
 
 def getAttributeVariations(data, feature):
@@ -445,17 +434,16 @@ def run_experiment(args):
    
     #features = get_random_features(true_x, range(true_x.shape[1]), 5)
     #print(features)
-    fpr_thresholds = [0.01, 0.05, 0.1]
-    mem_adv, mem_pred = yeom_membership_inference(true_y, pred_y, membership, train_loss)
-    chosen_params = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, fpr_thresholds, args)
-    #attack_adv, attack_pred = shokri_membership_inference(args, pred_y, membership, test_classes)
-    #attr_adv, attr_mem, attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
+    yeom_mem_adv, per_instance_loss = yeom_membership_inference(true_y, pred_y, membership, train_loss)
+    v_membership, v_per_instance_loss, v_counts, counts = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
+    #shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
+    #yeom_attr_adv, yeom_attr_mem, yeom_attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
 
     if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
     	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
 
-    #pickle.dump([train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-    #pickle.dump([train_acc, test_acc, train_loss, membership, chosen_params, res, mem_adv, mem_pred], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #pickle.dump([train_acc, test_acc, train_loss, membership, yeom_mem_adv, per_instance_loss, v_membership, v_per_instance_loss, v_counts, counts], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
@@ -486,6 +474,10 @@ if __name__ == '__main__':
     parser.add_argument('--attack_n_hidden', type=int, default=64)
     parser.add_argument('--attack_epochs', type=int, default=100)
     parser.add_argument('--attack_l2_ratio', type=float, default=1e-6)
+    # proposed attack's noise parameters
+    parser.add_argument('--attack_noise_type', type=str, default='gaussian')
+    parser.add_argument('--attack_noise_coverage', type=str, default='full')
+    parser.add_argument('--attack_noise_magnitude', type=float, default=0.01)
 
     # parse configuration
     args = parser.parse_args()
