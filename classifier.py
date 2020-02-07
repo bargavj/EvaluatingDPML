@@ -27,7 +27,7 @@ def get_predictions(predictions):
         pred_y.append(val['classes'])
         pred_scores.append(val['probabilities'])
         val = next(predictions, None)
-    return np.array(pred_y), np.matrix(pred_scores)
+    return np.array(pred_y), np.array(pred_scores)
 
 
 def get_model(features, labels, mode, params):

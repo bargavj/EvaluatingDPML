@@ -2,6 +2,9 @@ from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import random
 
+# to avoid numerical inconsistency in calculating log
+SMALL_VALUE = 1e-6
+
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
@@ -25,6 +28,9 @@ def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
 def loss_range():
     return list(np.arange(0, 0.001, 0.0001)) + list(np.arange(0.001, 0.01, 0.001)) + list(np.arange(0.01, 0.1, 0.01)) + list(np.arange(0.1, 1, 0.1)) + list(np.arange(1, 10, 1)) + [10, 20]
 
+def log_loss(a, b):
+	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
+
 def get_random_features(data, pool, size):
     random.seed(21312)
     features = set()
@@ -33,6 +39,21 @@ def get_random_features(data, pool, size):
         if len(np.unique(data[:,feat])) > 1:
             features.add(feat)
     return list(features)
+
+def get_attribute_variations(data, feature):
+	low_data, high_data = np.copy(data), np.copy(data)
+	if len(np.unique(data[:,feature])) == 2:
+		low, high = np.unique(data[:,feature])
+		pivot = (low + high) / 2
+	else:
+		pivot = np.quantile(data[:,feature], 0.5)
+		low = np.quantile(data[:,feature], 0.25)
+		high = np.quantile(data[:,feature], 0.75)
+	print(low, pivot, high)
+	true_attribute_value = np.where(data[:,feature] <= pivot, 0, 1)
+	low_data[:,feature] = low
+	high_data[:,feature] = high
+	return low_data, high_data, true_attribute_value
 
 def generate_noise(shape, dtype, noise_params):
     noise_type, noise_coverage, noise_magnitude = noise_params

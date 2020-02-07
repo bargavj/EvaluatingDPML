@@ -1,5 +1,5 @@
 from classifier import train as train_model, get_predictions
-from utilities import prety_print_result, get_inference_threshold, generate_noise, get_random_features
+from utilities import log_loss, prety_print_result, get_inference_threshold, generate_noise, get_random_features, get_attribute_variations
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_curve
 from scipy import stats
@@ -13,9 +13,6 @@ import matplotlib.pyplot as plt
 MODEL_PATH = './model/'
 DATA_PATH = './data/'
 RESULT_PATH = './results/'
-
-# to avoid numerical inconsistency in calculating log
-SMALL_VALUE = 1e-6
 
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
@@ -195,7 +192,7 @@ def save_data(args):
 
     x = pickle.load(open('dataset/'+args.train_dataset+'_features.p', 'rb'))
     y = pickle.load(open('dataset/'+args.train_dataset+'_labels.p', 'rb'))
-    x = np.matrix(x, dtype=np.float32)
+    x = np.array(x, dtype=np.float32)
     y = np.array(y, dtype=np.int32)
     print(x.shape, y.shape)
 
@@ -226,8 +223,8 @@ def load_data(data_name):
     with np.load(DATA_PATH + data_name) as f:
         train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
 
-    train_x = np.matrix(train_x, dtype=np.float32)
-    test_x = np.matrix(test_x, dtype=np.float32)
+    train_x = np.array(train_x, dtype=np.float32)
+    test_x = np.array(test_x, dtype=np.float32)
 
     train_y = np.array(train_y, dtype=np.int32)
     test_y = np.array(test_y, dtype=np.int32)
@@ -345,13 +342,13 @@ def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_pa
     return counts
 
 
-def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
+def yeom_attribute_inference(true_x, true_y, classifier, membership, train_loss, features):
     print('-' * 10 + 'YEOM\'S ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     yeom_attr_adv, yeom_attr_mem, yeom_attr_pred = [], [], []
     for feature in features:
         low_op, high_op = [], []
 
-        low_data, high_data, membership = getAttributeVariations(true_x, feature)
+        low_data, high_data, true_attribute_value = get_attribute_variations(true_x, feature)
 
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': low_data},
@@ -376,36 +373,13 @@ def yeom_attribute_inference(true_x, true_y, classifier, train_loss, features):
         high_op = log_loss(true_y, high_op)
 	    
         pred_membership = np.where(stats.norm(0, train_loss).pdf(low_op) >= stats.norm(0, train_loss).pdf(high_op), 0, 1)
-        fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
+        fpr, tpr, thresholds = roc_curve(membership, pred_membership ^ true_attribute_value ^ [1]*len(pred_membership), pos_label=1)
         print(fpr, tpr, tpr-fpr)
         yeom_attr_adv.append(tpr[1]-fpr[1])
-		#plt.plot(fpr, tpr)
-
-		# membership
-        #fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(high_op) - stats.norm(0, train_loss).pdf(low_op), pos_label=1)
-		#plt.plot(fpr, tpr)
-		# non-membership
-        #fpr, tpr, thresholds = roc_curve(membership, stats.norm(0, train_loss).pdf(low_op) - stats.norm(0, train_loss).pdf(high_op), pos_label=0)
-		#plt.show()
 		
-        yeom_attr_mem.append(membership)
+        yeom_attr_mem.append(true_attribute_value)
         yeom_attr_pred.append(np.vstack((low_op, high_op)))
     return yeom_attr_adv, yeom_attr_mem, yeom_attr_pred
-
-
-def getAttributeVariations(data, feature):
-	low_data, high_data = np.copy(data), np.copy(data)
-	pivot = np.quantile(data[:,feature], 0.5)
-	low = np.quantile(data[:,feature], 0.25)
-	high = np.quantile(data[:,feature], 0.75)
-	membership = np.where(data[:,feature] <= pivot, 0, 1)
-	low_data[:,feature] = low
-	high_data[:,feature] = high
-	return low_data, high_data, membership
-
-
-def log_loss(a, b):
-	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
 
 
 def run_experiment(args):
@@ -432,18 +406,18 @@ def run_experiment(args):
         save=args.save_model)
     train_loss, train_acc, test_acc = aux
    
-    #features = get_random_features(true_x, range(true_x.shape[1]), 5)
-    #print(features)
+    features = get_random_features(true_x, range(true_x.shape[1]), 5)
+    print(features)
     yeom_mem_adv, per_instance_loss = yeom_membership_inference(true_y, pred_y, membership, train_loss)
-    v_membership, v_per_instance_loss, v_counts, counts = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)
     #shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
-    #yeom_attr_adv, yeom_attr_mem, yeom_attr_pred = yeom_attribute_inference(true_x, true_y, classifier, train_loss, features)
+    yeom_attr_adv, yeom_attr_mem, yeom_attr_pred = yeom_attribute_inference(true_x, true_y, classifier, membership, train_loss, features)
+    v_membership, v_per_instance_loss, v_counts, counts = proposed_membership_inference(true_x, true_y, v_dataset, pred_y, classifier, membership, train_loss, args)    
 
     if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
     	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
 
     #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-    #pickle.dump([train_acc, test_acc, train_loss, membership, yeom_mem_adv, per_instance_loss, v_membership, v_per_instance_loss, v_counts, counts], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #pickle.dump([train_acc, test_acc, train_loss, membership, yeom_mem_adv, per_instance_loss, v_membership, v_per_instance_loss, v_counts, counts, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
