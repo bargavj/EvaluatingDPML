@@ -56,7 +56,7 @@ parallel -j 20 "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
     --target_l2_ratio=1e-8 \
     --target_learning_rate=0.005 \
     --run={1}" ::: 1 2 3 4 5
-parallel -j $SLURM_NTASKS --joblog joblog.txt --ungroup \
+parallel -j 20 --joblog joblog.txt --ungroup \
     "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
     --use_cpu=0 \
     --target_privacy='grad_pert' \
@@ -66,7 +66,7 @@ parallel -j $SLURM_NTASKS --joblog joblog.txt --ungroup \
     --target_dp='rdp' \
     --target_epsilon={1} \
     --run={2}" ::: 0.01 0.05 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0 ::: 1 2 3 4 5
-parallel -j $SLURM_NTASKS --joblog joblog.txt --ungroup \
+parallel -j 20 --joblog joblog.txt --ungroup \
     "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
     --use_cpu=0 \
     --target_privacy='grad_pert' \
