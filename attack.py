@@ -523,7 +523,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('train_dataset', type=str)
     parser.add_argument('--run', type=int, default=1)
-    parser.add_argument('--use_cpu', type=int, default=1)
+    parser.add_argument('--use_cpu', type=int, default=0)
     parser.add_argument('--save_model', type=int, default=0)
     parser.add_argument('--save_data', type=int, default=0)
     # target and shadow model configuration
