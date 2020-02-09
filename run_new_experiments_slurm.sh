@@ -49,7 +49,7 @@ echo "Beginning experiment"
 # parallel will run the quoted command, replacing each {n} with each value on
 # the n-th line starting with ":::" exactly as if it were a nested for-loop.
 # The start-times, durations, and commands of tasks are stored in joblog.txt.
-parallel -j 20 "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
+parallel -j 20 "python $ATTACK_PY $DATASET \
     --use_cpu=0 \
     --target_privacy='no_privacy' \
     --target_model='nn' \
@@ -57,7 +57,7 @@ parallel -j 20 "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
     --target_learning_rate=0.005 \
     --run={1}" ::: 1 2 3 4 5
 parallel -j 20 --joblog joblog.txt --ungroup \
-    "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
+    "python $ATTACK_PY $DATASET \
     --use_cpu=0 \
     --target_privacy='grad_pert' \
     --target_model='nn' \
@@ -67,7 +67,7 @@ parallel -j 20 --joblog joblog.txt --ungroup \
     --target_epsilon={1} \
     --run={2}" ::: 0.01 0.05 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0 ::: 1 2 3 4 5
 parallel -j 20 --joblog joblog.txt --ungroup \
-    "srun --exclusive -N1 -n1 python $ATTACK_PY $DATASET \
+    "python $ATTACK_PY $DATASET \
     --use_cpu=0 \
     --target_privacy='grad_pert' \
     --target_model='nn' \
