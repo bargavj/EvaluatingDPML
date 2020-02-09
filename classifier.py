@@ -61,15 +61,15 @@ def get_model(features, labels, mode, params):
             C = 4 # Clipping Threshold - def : 1
             sigma = 0.
             if dp == 'adv_cmp':
-                sigma = np.sqrt(epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon # Adv Comp
+                sigma = np.sqrt(epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon
             elif dp == 'zcdp':
-                sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon # zCDP
+                sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon
             elif dp == 'rdp':
                 sigma = noise_multiplier[epsilon]
             elif dp == 'gdp':
                 sigma = gdp_noise_multiplier[epsilon]
             elif dp == 'dp':
-                sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon # DP
+                sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon
             print(sigma)
     
             optimizer = dp_optimizer.DPAdamGaussianOptimizer(
@@ -180,10 +180,11 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
         print('Train accuracy is: %.3f' % (train_acc))
 
         eval_results = classifier.evaluate(input_fn=test_eval_input_fn)
+        test_loss = eval_results['loss']
         test_acc = eval_results['accuracy']
         print('Test accuracy is: %.3f' % (test_acc))
 
         # warning: silent flag is only used for target model training, as it also returns auxiliary information
-        return classifier, (train_loss, train_acc, test_acc)
+        return classifier, (train_loss, train_acc, test_loss, test_acc)
 
     return classifier

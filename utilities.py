@@ -1,6 +1,7 @@
 from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 # to avoid numerical inconsistency in calculating log
 SMALL_VALUE = 1e-6
@@ -46,10 +47,9 @@ def get_attribute_variations(data, feature):
 		low, high = np.unique(data[:,feature])
 		pivot = (low + high) / 2
 	else:
-		pivot = np.quantile(data[:,feature], 0.5)
-		low = np.quantile(data[:,feature], 0.25)
-		high = np.quantile(data[:,feature], 0.75)
-	print(low, pivot, high)
+		pivot = np.quantile(np.unique(data[:,feature]), 0.5)
+		low = np.quantile(np.unique(data[:,feature]), 0.25)
+		high = np.quantile(np.unique(data[:,feature]), 0.75)
 	true_attribute_value = np.where(data[:,feature] <= pivot, 0, 1)
 	low_data[:,feature] = low
 	high_data[:,feature] = high
@@ -71,6 +71,7 @@ def generate_noise(shape, dtype, noise_params):
     return noise
 
 def plot_sign_histogram(membership, signs, trials):
+    signs = np.array(signs, dtype='int32')
     mem, non_mem = np.zeros(trials + 1), np.zeros(trials + 1)
     for i in range(len(signs)):
         if membership[i] == 1:
