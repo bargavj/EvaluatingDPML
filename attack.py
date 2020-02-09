@@ -301,7 +301,7 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
     prety_print_result(membership, pred_membership)
     print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
     for fpr_threshold in fpr_thresholds:
-    	print('FPR = %.2f' % fpr_threshold)
+        print('FPR = %.2f' % fpr_threshold)
         thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
         pred_membership = np.where(per_instance_loss <= -thresh, 1, 0)
         prety_print_result(membership, pred_membership)
@@ -313,7 +313,7 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
     prety_print_result(membership, pred_membership)
     print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
     for fpr_threshold in fpr_thresholds:
-    	print('FPR = %.2f' % fpr_threshold)
+        print('FPR = %.2f' % fpr_threshold)
         thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
         pred_membership = np.where(counts >= thresh, 1, 0)
         prety_print_result(membership, pred_membership)
@@ -373,7 +373,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
 
         pred_membership = mask & (pred_attribute_value ^ true_attribute_value ^ [1]*len(pred_attribute_value))
         prety_print_result(membership, pred_membership)
-		pred_membership_all.append(pred_membership)
+        pred_membership_all.append(pred_membership)
     return pred_membership_all
 
 
@@ -438,14 +438,14 @@ def evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, propo
 def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=1):
     v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
     true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
-    for i in len(features):
+    for i in range(len(features)):
         high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
         low_prob = 1 - high_prob
         # Attack Method 1
         if attack_method == 1:
             thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
             low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
-            high_mem = np.where(high_per_instance_loss_all_all[i] <= -thresh, 1, 0)
+            high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
         # Attack Method 2
         elif attack_method == 2:
             thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
@@ -488,7 +488,7 @@ def run_experiment(args):
     # Yeom's membership inference attack when only train_loss is known 
     yeom_mi_outputs_1 = yeom_membership_inference(per_instance_loss, membership, train_loss)
     # Yeom's membership inference attack when both train_loss and test_loss are known - Adversary 2 of Yeom et al.
-    yeom_mi_outputs_1 = yeom_membership_inference(per_instance_loss, membership, train_loss, test_loss)
+    yeom_mi_outputs_2 = yeom_membership_inference(per_instance_loss, membership, train_loss, test_loss)
 
     # Shokri's membership inference attack based on shadow model training
     #shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
@@ -511,7 +511,10 @@ def run_experiment(args):
     	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
 
     #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-    pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    if args.target_privacy == 'no_privacy':
+        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+    else:
+        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
