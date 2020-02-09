@@ -30,7 +30,7 @@ module load parallel
 # Make sure conda environment has dependencies
 echo "Creating conda environment"
 conda create -n tf-gpu tensorflow-gpu
-conda activate tf-gpu
+source activate tf-gpu
 conda install scikit-learn
 
 pip install dm-tree
