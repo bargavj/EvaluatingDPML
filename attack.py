@@ -36,7 +36,7 @@ def load_attack_data():
 def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
                        n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
     if dataset == None:
-        dataset = load_data('target_data.npz')
+        dataset = load_data('target_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
 
     classifier, aux = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
@@ -86,7 +86,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
     classes = []
     for i in range(n_shadow):
         #print('Training shadow model {}'.format(i))
-        dataset = load_data('shadow{}_data.npz'.format(i))
+        dataset = load_data('shadow{}_data.npz'.format(i), args)
         train_x, train_y, test_x, test_y = dataset
 
         # train model
@@ -218,7 +218,9 @@ def save_data(args):
         np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
 
 
-def load_data(data_name):
+def load_data(data_name, args):
+    target_size = args.target_data_size
+    gamma = args.target_test_train_ratio
     with np.load(DATA_PATH + data_name) as f:
         train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
 
@@ -228,7 +230,7 @@ def load_data(data_name):
     train_y = np.array(train_y, dtype=np.int32)
     test_y = np.array(test_y, dtype=np.int32)
 
-    return train_x, train_y, test_x, test_y
+    return train_x, train_y, test_x[:gamma*target_size], test_y[:gamma*target_size]
 
 
 def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
@@ -459,8 +461,8 @@ def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_output
 
 def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
-    dataset = load_data('target_data.npz')
-    v_dataset = load_data('shadow0_data.npz')
+    dataset = load_data('target_data.npz', args)
+    v_dataset = load_data('shadow0_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
     true_x = np.vstack((train_x, test_x))
     true_y = np.append(train_y, test_y)
@@ -512,9 +514,9 @@ def run_experiment(args):
 
     #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
     if args.target_privacy == 'no_privacy':
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+str(args.target_test_train_ratio)+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
     else:
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+str(args.target_test_train_ratio)+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
