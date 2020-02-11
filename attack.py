@@ -324,7 +324,7 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
 def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
     counts = np.zeros(len(true_x))
     for t in range(max_t):
-        noisy_x = np.copy(true_x) + generate_noise(true_x.shape, true_x.dtype, noise_params)
+        noisy_x = true_x + generate_noise(true_x.shape, true_x.dtype, noise_params)
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': noisy_x}, 
            num_epochs=1,
@@ -340,30 +340,32 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
     print('-' * 10 + 'YEOM\'S ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     pred_membership_all = []
     for feature in features:
-        low_data, high_data, true_attribute_value = get_attribute_variations(true_x, feature)
-
+        orignial_attribute = np.copy(true_x[:,feature])
+        low_value, high_value, true_attribute_value = get_attribute_variations(true_x, feature)
+        
+        true_x[:,feature] = low_value
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': low_data},
+            x={'x': true_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, low_op = get_predictions(predictions)
+        low_op = low_op.astype('float32')
+        low_op = log_loss(true_y, low_op)
         
+        true_x[:,feature] = high_value
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': high_data},
+            x={'x': true_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, high_op = get_predictions(predictions)
-
-        low_op = low_op.astype('float32')
         high_op = high_op.astype('float32')
-        low_op = log_loss(true_y, low_op)
         high_op = log_loss(true_y, high_op)
-
+        
         high_prob = np.sum(true_attribute_value) / len(true_attribute_value)
         low_prob = 1 - high_prob
-
+        
         if test_loss == None:
             pred_attribute_value = np.where(low_prob * stats.norm(0, train_loss).pdf(low_op) >= high_prob * stats.norm(0, train_loss).pdf(high_op), 0, 1)
             mask = [1]*len(pred_attribute_value)
@@ -372,10 +374,11 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
             high_mem = np.where(stats.norm(0, train_loss).pdf(high_op) >= stats.norm(0, test_loss).pdf(high_op), 1, 0)
             pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
             mask = [a | b for a, b in zip(low_mem, high_mem)]
-
+        
         pred_membership = mask & (pred_attribute_value ^ true_attribute_value ^ [1]*len(pred_attribute_value))
         prety_print_result(membership, pred_membership)
         pred_membership_all.append(pred_membership)
+        true_x[:,feature] = orignial_attribute
     return pred_membership_all
 
 
@@ -386,36 +389,38 @@ def proposed_attribute_inference(true_x, true_y, classifier, membership, feature
     low_counts_all, high_counts_all = [], []
     true_attribute_value_all = []
     for feature in features:
-        low_data, high_data, true_attribute_value = get_attribute_variations(true_x, feature)
-
+        orignial_attribute = np.copy(true_x[:,feature])
+        low_value, high_value, true_attribute_value = get_attribute_variations(true_x, feature)
+        noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
+        
+        true_x[:,feature] = low_value
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': low_data},
+            x={'x': true_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, low_op = get_predictions(predictions)
+        low_op = low_op.astype('float32')
+        low_op = log_loss(true_y, low_op)
+        low_counts = loss_increase_counts(true_x, true_y, classifier, low_op, noise_params)
         
+        true_x[:,feature] = high_value
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': high_data},
+            x={'x': true_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         _, high_op = get_predictions(predictions)
-
-        low_op = low_op.astype('float32')
         high_op = high_op.astype('float32')
-        low_op = log_loss(true_y, low_op)
         high_op = log_loss(true_y, high_op)
+        high_counts = loss_increase_counts(true_x, true_y, classifier, high_op, noise_params)
         
-        noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
-        low_counts = loss_increase_counts(low_data, true_y, classifier, low_op, noise_params)
-        high_counts = loss_increase_counts(high_data, true_y, classifier, high_op, noise_params)
-
         true_attribute_value_all.append(true_attribute_value)
         low_per_instance_loss_all.append(low_op)
         high_per_instance_loss_all.append(high_op)
         low_counts_all.append(low_counts)
         high_counts_all.append(high_counts)
+        true_x[:,feature] = orignial_attribute
     return (true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all)
 
 

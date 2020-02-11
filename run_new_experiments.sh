@@ -43,14 +43,14 @@ for RUN in 1 2 3 4 5
 do
     python $ATTACK_PY $DATASET --target_test_train_ratio=$GAMMA --target_model='nn' --target_l2_ratio=1e-8 --target_learning_rate=0.005 --target_privacy='no_privacy' --run=$RUN
 done
-for EPSILON in 0.01 0.05 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0
+for EPSILON in 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0
 do
     for RUN in 1 2 3 4 5
     do
         python $ATTACK_PY $DATASET --target_test_train_ratio=$GAMMA --target_model='nn' --target_l2_ratio=1e-8 --target_learning_rate=0.005 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=$EPSILON --run=$RUN
     done
 done
-for EPSILON in 0.01 0.05 0.1 0.5 1.0 5.0 10.0 50.0 100.0
+for EPSILON in 0.1 0.5 1.0 5.0 10.0 50.0 100.0
 do
     for RUN in 1 2 3 4 5
     do

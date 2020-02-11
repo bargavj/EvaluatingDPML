@@ -42,7 +42,6 @@ def get_random_features(data, pool, size):
     return list(features)
 
 def get_attribute_variations(data, feature):
-	low_data, high_data = np.copy(data), np.copy(data)
 	if len(np.unique(data[:,feature])) == 2:
 		low, high = np.unique(data[:,feature])
 		pivot = (low + high) / 2
@@ -51,9 +50,7 @@ def get_attribute_variations(data, feature):
 		low = np.quantile(np.unique(data[:,feature]), 0.25)
 		high = np.quantile(np.unique(data[:,feature]), 0.75)
 	true_attribute_value = np.where(data[:,feature] <= pivot, 0, 1)
-	low_data[:,feature] = low
-	high_data[:,feature] = high
-	return low_data, high_data, true_attribute_value
+	return low, high, true_attribute_value
 
 def generate_noise(shape, dtype, noise_params):
     noise_type, noise_coverage, noise_magnitude = noise_params
