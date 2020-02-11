@@ -382,9 +382,8 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
     return pred_membership_all
 
 
-def proposed_attribute_inference(true_x, true_y, classifier, membership, features, proposed_mi_outputs, args):
+def proposed_attribute_inference(true_x, true_y, classifier, membership, features, args):
     print('-' * 10 + 'PROPOSED ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
-    v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
     low_per_instance_loss_all, high_per_instance_loss_all = [], []
     low_counts_all, high_counts_all = [], []
     true_attribute_value_all = []
@@ -511,7 +510,7 @@ def run_experiment(args):
     evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_thresholds)
 
     # Proposed attribute inference attacks
-    proposed_ai_outputs = proposed_attribute_inference(true_x, true_y, classifier, membership, features, proposed_mi_outputs, args)
+    proposed_ai_outputs = proposed_attribute_inference(true_x, true_y, classifier, membership, features, args)
     evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_thresholds)
 
     if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
