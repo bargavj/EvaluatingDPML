@@ -10,7 +10,7 @@ def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
     if tp == fp == 0:
-    	print('PPV: nan\nAdvantage: 0.0000')
+    	print('PPV: 0\nAdvantage: 0')
     else:
     	print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
 
@@ -23,7 +23,7 @@ def get_adv(mem, pred):
 def get_ppv(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     if tp == fp == 0:
-    	return None
+    	return 0
     return tp / (tp + fp)
 
 def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
