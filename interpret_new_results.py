@@ -12,17 +12,20 @@ EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 PERTURBATION = 'grad_pert_'
-DP = ['rdp_']
+DP = ['gdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
 RUNS = range(5)
 A, B = len(EPSILONS), len(RUNS)
 ALPHAS = np.arange(0.01, 1, 0.01)
 delta = 1e-5
-ALPHA = 0.02
+ALPHA = 0.1
+gamma = 1
 
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams.update({'font.size': 15})
+plt.rcParams['mathtext.fontset'] = 'stix'
+plt.rcParams['font.family'] = 'STIXGeneral'
+#plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams.update({'font.size': 20})
 
 
 def f(eps, delta, alpha):
@@ -34,7 +37,7 @@ def adv_lim(eps, delta, alpha):
 
 
 def ppv_lim(eps, delta, alpha):
-	return (1 - f(eps, delta, alpha)) / (1 - f(eps, delta, alpha) + alpha)
+	return (1 - f(eps, delta, alpha)) / (1 - f(eps, delta, alpha) + gamma * alpha)
 
 
 def improved_limit(epsilons):
@@ -93,16 +96,42 @@ def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=Non
 		mask = [a | b for a, b in zip(low_mem, high_mem)]
 		return mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
 
+def plot_distributions(pred_vector, true_vector):
+	fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
+	fpr, tpr, thresholds = np.array(fpr), np.array(tpr), np.array(thresholds)
+	PPV_A = tpr / (tpr + gamma * fpr)
+	Adv_A = tpr - fpr
+	phi = (thresholds - np.min(thresholds))/ (np.max(thresholds) - np.min(thresholds))
+	fig, ax1 = plt.subplots()
+	ax1.plot(phi, Adv_A, label="Adv", color='black')
+	ax1.plot(phi, PPV_A, label="PPV", color='black')
+	ax2 = ax1.twinx()
+	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
+	ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
+	ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
+	ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -2), textcoords="offset points", xytext=(0,-30), ha='left')
+	ax1.set_xlabel('Decision Function $\Phi$')
+	ax1.set_ylabel('Privacy Leakage Metrics')
+	ax2.set_ylabel('False Positive Rate')
+	ax1.set_yticks(np.arange(0, 1.1, step=0.2))
+	ax2.set_yticks(np.arange(0, 1.1, step=0.2))
+	fig.tight_layout()
+	plt.show()
+
 
 def plot_advantage(result):
-	baseline_acc = np.zeros(B)
+	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	adv_y_mi_1, adv_y_mi_2, adv_y_ai_1, adv_y_ai_2, adv_p_mi_1, adv_p_mi_2, adv_p_ai_1, adv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	ppv_y_mi_1, ppv_y_mi_2, ppv_y_ai_1, ppv_y_ai_2, ppv_p_mi_1, ppv_p_mi_2, ppv_p_ai_1, ppv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	pred1, pred2, pred3, pred4 = [], [], [], []
 	for run in RUNS:
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
+		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		plot_distributions(-per_instance_loss, membership)
+		plot_distributions(counts, membership)
 		baseline_acc[run] = test_acc
+		train_accs[run] = train_acc
 		adv_p_mi_1[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 		adv_p_mi_2[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
 		ppv_p_mi_1[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
@@ -116,7 +145,8 @@ def plot_advantage(result):
 		pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 		pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
 	baseline_acc = np.mean(baseline_acc)
-	print(baseline_acc)
+	print(np.mean(train_accs), baseline_acc)
+	'''
 	print('MI Results on Non private model')
 	print('Yeom method 1')
 	print('Adv: %f, PPV: %f' % (np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
@@ -130,7 +160,7 @@ def plot_advantage(result):
 	print('Our method 2')
 	print('Adv: %f, PPV: %f' % (np.mean(adv_p_mi_2), np.mean(ppv_p_mi_2)))
 	ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
-	
+	'''
 	color = 0.1
 	y = dict()
 	for dp in DP:
@@ -145,6 +175,11 @@ def plot_advantage(result):
 			for run in RUNS:
 				aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
+				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+				print('Epsilon: %.1f, run: %d, Method 1' % (eps, run+1))
+				plot_distributions(-per_instance_loss, membership)
+				print('Epsilon: %.1f, run: %d, Method 2' % (eps, run+1))
+				plot_distributions(counts, membership)
 				test_acc_vec[a, run] = test_acc
 				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
@@ -169,6 +204,7 @@ def plot_advantage(result):
 				pred2.append(yeom_mi_outputs_2)
 				pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 				pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
+			'''
 			print('\n'+str(eps)+'\n')
 			print('Yeom method 1')
 			ppv_across_runs(membership, np.sum(np.array(pred1), axis=0))
@@ -178,22 +214,23 @@ def plot_advantage(result):
 			ppv_across_runs(membership, np.sum(np.array(pred3), axis=0))
 			print('Our method 2')
 			ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
+			'''
 		if args.plot == 'acc':
 			y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+			plt.errorbar(EPSILONS, 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
 		elif args.plot == 'adv':
 			y[dp] = adv_y_mi_1
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(adv_y_mi_1, axis=1), yerr=np.std(adv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(adv_y_mi_2, axis=1), yerr=np.std(adv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(adv_p_mi_1, axis=1), yerr=np.std(adv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(adv_p_mi_2, axis=1), yerr=np.std(adv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
+			plt.errorbar(EPSILONS, np.mean(adv_y_mi_1, axis=1), yerr=np.std(adv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
+			plt.errorbar(EPSILONS, np.mean(adv_y_mi_2, axis=1), yerr=np.std(adv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
+			plt.errorbar(EPSILONS, np.mean(adv_p_mi_1, axis=1), yerr=np.std(adv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
+			plt.errorbar(EPSILONS, np.mean(adv_p_mi_2, axis=1), yerr=np.std(adv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
 		elif args.plot == 'ppv':
 			y[dp] = ppv_y_mi_1
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(ppv_y_mi_1, axis=1), yerr=np.std(ppv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(ppv_y_mi_2, axis=1), yerr=np.std(ppv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(ppv_p_mi_1, axis=1), yerr=np.std(ppv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
-			plt.errorbar(EPSILONS[:len(test_acc_vec)], np.mean(ppv_p_mi_2, axis=1), yerr=np.std(ppv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
-		#color += 0.2
+			plt.errorbar(EPSILONS, np.mean(ppv_y_mi_1, axis=1), yerr=np.std(ppv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
+			plt.errorbar(EPSILONS, np.mean(ppv_y_mi_2, axis=1), yerr=np.std(ppv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
+			plt.errorbar(EPSILONS, np.mean(ppv_p_mi_1, axis=1), yerr=np.std(ppv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
+			plt.errorbar(EPSILONS, np.mean(ppv_p_mi_2, axis=1), yerr=np.std(ppv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
+		color += 0.2
 
 	plt.xscale('log')
 	plt.xlabel('Privacy Budget ($\epsilon$)')
@@ -201,24 +238,30 @@ def plot_advantage(result):
 	if args.plot == 'acc':
 		plt.ylabel('Accuracy Loss')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
+		plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 3), textcoords="offset points", xytext=(30, 10), ha='right', color=str(0.3))
+		plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 3), textcoords="offset points", xytext=(-10, -10), ha='right', color=str(0.1))
 	elif args.plot == 'adv':
 		bottom, top = plt.ylim()
 		plt.errorbar(EPS, yeoms_limit(EPS), color='black', fmt='--', capsize=2, label='Old Theoretical Limit')
 		plt.errorbar(EPS, improved_limit(EPS), color='black', fmt='--', capsize=2, label='Improved Limit')
 		plt.ylim(bottom, 1)
-		plt.annotate("$\epsilon$-DP Bound", pretty_position(EPS, yeoms_limit(EPS), 5), textcoords="offset points", xytext=(5,0), ha='left')
+		plt.annotate("Yeom's", pretty_position(EPS, yeoms_limit(EPS), 55), textcoords="offset points", xytext=(-70,0), ha='left')
+		plt.annotate("Bound", pretty_position(EPS, yeoms_limit(EPS), 55), textcoords="offset points", xytext=(-70,-20), ha='left')
+		plt.annotate("Improved Bound", pretty_position(EPS, improved_limit(EPS), 500), textcoords="offset points", xytext=(0,-20), ha='left')
+		plt.annotate("MI-1", pretty_position(EPSILONS, np.mean(adv_p_mi_1, axis=1), 3), textcoords="offset points", xytext=(0,10), ha='left', color=str(0.6))
+		plt.annotate("MI-2", pretty_position(EPSILONS, np.mean(adv_p_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,-10), ha='left', color=str(0.1))
+		plt.annotate("Baseline-1", pretty_position(EPSILONS, np.mean(adv_y_mi_1, axis=1), 0), textcoords="offset points", xytext=(0,10), ha='left', color=str(0.6))
+		plt.annotate("Baseline-2", pretty_position(EPSILONS, np.mean(adv_y_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,-10), ha='left', color=str(0.1))
 		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.ylabel('Privacy Leakage')
+		plt.ylabel('$Adv_\mathcal{A}$')
 	elif args.plot == 'ppv':
 		bottom, top = plt.ylim()
 		plt.errorbar(EPS, [ppv_lim(eps, delta=delta, alpha=ALPHA) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
 		plt.ylim(bottom, 1)
 		plt.annotate("$\epsilon$-DP Bound", pretty_position(EPS, [ppv_lim(eps, delta=delta, alpha=ALPHA) for eps in EPS], 1000), textcoords="offset points", xytext=(-10,-15), ha='left')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.ylabel('Privacy Leakage')
-
-	#plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 3), textcoords="offset points", xytext=(-10, 0), ha='right')
-	#plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 3), textcoords="offset points", xytext=(-10, 0), ha='right')
+		plt.ylabel('$PPV_\mathcal{A}$')
+	
 	plt.show()
 	
 
@@ -323,7 +366,7 @@ if __name__ == '__main__':
 	print(vars(args))
 
 	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi/'
-	MODEL = '1_' + str(args.model) + '_'
+	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.function == 1:
