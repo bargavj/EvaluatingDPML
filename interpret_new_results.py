@@ -1,6 +1,6 @@
 from sklearn.metrics import roc_curve, confusion_matrix
 from scipy import stats
-from utilities import get_adv, get_ppv, get_inference_threshold
+from utilities import get_adv, get_ppv, get_inference_threshold, plot_histogram, plot_sign_histogram
 from attack import evaluate_proposed_membership_inference
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,7 +12,7 @@ EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 PERTURBATION = 'grad_pert_'
-DP = ['gdp_']
+DP = ['gdp_', 'rdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
 RUNS = range(5)
@@ -96,9 +96,12 @@ def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=Non
 		mask = [a | b for a, b in zip(low_mem, high_mem)]
 		return mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
 
-def plot_distributions(pred_vector, true_vector):
+def plot_distributions(pred_vector, true_vector, method=1):
 	fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
 	fpr, tpr, thresholds = np.array(fpr), np.array(tpr), np.array(thresholds)
+	if method == 1:
+		pos = list(filter(lambda i: 0 >= thresholds[i] > -1, np.arange(len(thresholds))))
+		#fpr, tpr, thresholds = fpr[pos], tpr[pos], thresholds[pos]
 	PPV_A = tpr / (tpr + gamma * fpr)
 	Adv_A = tpr - fpr
 	phi = (thresholds - np.min(thresholds))/ (np.max(thresholds) - np.min(thresholds))
@@ -128,8 +131,10 @@ def plot_advantage(result):
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		plot_histogram(per_instance_loss)
 		plot_distributions(-per_instance_loss, membership)
-		plot_distributions(counts, membership)
+		plot_sign_histogram(membership, counts, 100)
+		plot_distributions(counts, membership, 2)
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
 		adv_p_mi_1[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
@@ -177,9 +182,11 @@ def plot_advantage(result):
 				train_loss, train_acc, test_loss, test_acc = aux
 				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				print('Epsilon: %.1f, run: %d, Method 1' % (eps, run+1))
+				plot_histogram(per_instance_loss)
 				plot_distributions(-per_instance_loss, membership)
 				print('Epsilon: %.1f, run: %d, Method 2' % (eps, run+1))
-				plot_distributions(counts, membership)
+				plot_sign_histogram(membership, counts, 100)
+				plot_distributions(counts, membership, 2)
 				test_acc_vec[a, run] = test_acc
 				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
@@ -238,8 +245,8 @@ def plot_advantage(result):
 	if args.plot == 'acc':
 		plt.ylabel('Accuracy Loss')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 3), textcoords="offset points", xytext=(30, 10), ha='right', color=str(0.3))
-		plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 3), textcoords="offset points", xytext=(-10, -10), ha='right', color=str(0.1))
+		plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 2), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
+		plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 2), textcoords="offset points", xytext=(-20, -10), ha='right', color=str(0.1))
 	elif args.plot == 'adv':
 		bottom, top = plt.ylim()
 		plt.errorbar(EPS, yeoms_limit(EPS), color='black', fmt='--', capsize=2, label='Old Theoretical Limit')
@@ -261,7 +268,7 @@ def plot_advantage(result):
 		plt.annotate("$\epsilon$-DP Bound", pretty_position(EPS, [ppv_lim(eps, delta=delta, alpha=ALPHA) for eps in EPS], 1000), textcoords="offset points", xytext=(-10,-15), ha='left')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
 		plt.ylabel('$PPV_\mathcal{A}$')
-	
+	plt.tight_layout()
 	plt.show()
 	
 

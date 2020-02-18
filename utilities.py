@@ -82,32 +82,39 @@ def generate_noise(shape, dtype, noise_params):
 def plot_sign_histogram(membership, signs, trials):
     signs = np.array(signs, dtype='int32')
     mem, non_mem = np.zeros(trials + 1), np.zeros(trials + 1)
+    mem_size, non_mem_size = sum(membership), len(membership) - sum(membership)
     for i in range(len(signs)):
         if membership[i] == 1:
             mem[signs[i]] += 1
         else:
             non_mem[signs[i]] += 1
-    plt.plot(np.arange(trials + 1), mem, label='Members')
-    plt.plot(np.arange(trials + 1), non_mem, label='Non Members')
+    plt.plot(np.arange(trials + 1), mem / mem_size, label='Members')
+    plt.plot(np.arange(trials + 1), non_mem / non_mem_size, label='Non Members')
     plt.xlabel('Number of Times Loss Increases (out of '+str(trials)+')')
-    plt.ylabel('Number of Instances')
-    plt.xticks(list(range(0, trials + 1)))
+    plt.ylabel('Fraction of Instances')
+    plt.xticks(list(range(0, trials + 1, trials // 5)))
+    plt.yticks(np.arange(0, 0.31, step=0.05))
+    plt.ylim(0, 0.3)
     plt.legend()
+    plt.tight_layout()
     plt.show()
 
-def make_histogram(vector):
+def plot_histogram(vector):
     mem = vector[:10000]
     non_mem = vector[10000:]
     data, bins, _ = plt.hist([mem, non_mem], bins=loss_range())
     plt.clf()
     mem_hist = np.array(data[0])
     non_mem_hist = np.array(data[1])
-    plt.plot(bins[:-1], mem_hist, label='Members')
-    plt.plot(bins[:-1], non_mem_hist, label='Non Members')
+    plt.plot(bins[:-1], mem_hist / len(mem), label='Members')
+    plt.plot(bins[:-1], non_mem_hist / len(non_mem), label='Non Members')
     plt.xscale('log')
+    plt.yticks(np.arange(0, 0.31, step=0.05))
+    plt.ylim(0, 0.3)
     plt.xlabel('Per-Instance Loss')
-    plt.ylabel('Number of Instances')
+    plt.ylabel('Fraction of Instances')
     plt.legend()
+    plt.tight_layout()
     plt.show()
 
 def make_membership_box_plot(vector):
