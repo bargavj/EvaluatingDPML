@@ -97,22 +97,27 @@ def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=Non
 		return mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
 
 def plot_distributions(pred_vector, true_vector, method=1):
-	fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
-	fpr, tpr, thresholds = np.array(fpr), np.array(tpr), np.array(thresholds)
+	fpr, tpr, phi = roc_curve(true_vector, pred_vector, pos_label=1)
+	fpr, tpr, phi = np.array(fpr), np.array(tpr), np.array(phi)
 	if method == 1:
-		pos = list(filter(lambda i: 0 >= thresholds[i] > -1, np.arange(len(thresholds))))
-		#fpr, tpr, thresholds = fpr[pos], tpr[pos], thresholds[pos]
+		fpr = 1 - fpr
+		tpr = 1 - tpr
 	PPV_A = tpr / (tpr + gamma * fpr)
 	Adv_A = tpr - fpr
-	phi = (thresholds - np.min(thresholds))/ (np.max(thresholds) - np.min(thresholds))
 	fig, ax1 = plt.subplots()
 	ax1.plot(phi, Adv_A, label="Adv", color='black')
 	ax1.plot(phi, PPV_A, label="PPV", color='black')
 	ax2 = ax1.twinx()
 	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
-	ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
-	ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
-	ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -2), textcoords="offset points", xytext=(0,-30), ha='left')
+	if method == 1:
+		ax1.set_xscale('log')
+		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, -5), textcoords="offset points", xytext=(70,20), ha='left')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -5), textcoords="offset points", xytext=(0,20), ha='left')
+		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-20,-10), ha='right')
+	else:
+		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -5), textcoords="offset points", xytext=(0,10), ha='left')
+		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -2), textcoords="offset points", xytext=(0,-30), ha='left')
 	ax1.set_xlabel('Decision Function $\Phi$')
 	ax1.set_ylabel('Privacy Leakage Metrics')
 	ax2.set_ylabel('False Positive Rate')
@@ -132,7 +137,7 @@ def plot_advantage(result):
 		train_loss, train_acc, test_loss, test_acc = aux
 		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 		plot_histogram(per_instance_loss)
-		plot_distributions(-per_instance_loss, membership)
+		plot_distributions(per_instance_loss, membership)
 		plot_sign_histogram(membership, counts, 100)
 		plot_distributions(counts, membership, 2)
 		baseline_acc[run] = test_acc
@@ -181,12 +186,6 @@ def plot_advantage(result):
 				aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
 				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-				print('Epsilon: %.1f, run: %d, Method 1' % (eps, run+1))
-				plot_histogram(per_instance_loss)
-				plot_distributions(-per_instance_loss, membership)
-				print('Epsilon: %.1f, run: %d, Method 2' % (eps, run+1))
-				plot_sign_histogram(membership, counts, 100)
-				plot_distributions(counts, membership, 2)
 				test_acc_vec[a, run] = test_acc
 				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
 				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))

@@ -39,7 +39,7 @@ def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
     return alpha_thresh
 
 def loss_range():
-    return list(np.arange(0, 0.001, 0.0001)) + list(np.arange(0.001, 0.01, 0.001)) + list(np.arange(0.01, 0.1, 0.01)) + list(np.arange(0.1, 1, 0.1)) + list(np.arange(1, 10, 1)) + [10, 20]
+	return list(np.arange(0, -np.log(SMALL_VALUE), 0.0001))
 
 def log_loss(a, b):
 	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
@@ -93,8 +93,8 @@ def plot_sign_histogram(membership, signs, trials):
     plt.xlabel('Number of Times Loss Increases (out of '+str(trials)+')')
     plt.ylabel('Fraction of Instances')
     plt.xticks(list(range(0, trials + 1, trials // 5)))
-    plt.yticks(np.arange(0, 0.31, step=0.05))
-    plt.ylim(0, 0.3)
+    plt.yticks(np.arange(0, 0.11, step=0.02))
+    plt.ylim(0, 0.1)
     plt.legend()
     plt.tight_layout()
     plt.show()
@@ -109,8 +109,8 @@ def plot_histogram(vector):
     plt.plot(bins[:-1], mem_hist / len(mem), label='Members')
     plt.plot(bins[:-1], non_mem_hist / len(non_mem), label='Non Members')
     plt.xscale('log')
-    plt.yticks(np.arange(0, 0.31, step=0.05))
-    plt.ylim(0, 0.3)
+    plt.yticks(np.arange(0, 0.21, step=0.05))
+    plt.ylim(0, 0.2)
     plt.xlabel('Per-Instance Loss')
     plt.ylabel('Fraction of Instances')
     plt.legend()

@@ -514,8 +514,8 @@ def run_experiment(args):
     evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_thresholds)
 
     if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
-    	os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
-
+        os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
+    
     #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
     if args.target_privacy == 'no_privacy':
         pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
