@@ -12,15 +12,13 @@ EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 PERTURBATION = 'grad_pert_'
-DP = ['gdp_', 'rdp_']
+DP = ['gdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
 RUNS = range(5)
 A, B = len(EPSILONS), len(RUNS)
 ALPHAS = np.arange(0.01, 1, 0.01)
 delta = 1e-5
-ALPHA = 0.1
-gamma = 1
 
 plt.rcParams['mathtext.fontset'] = 'stix'
 plt.rcParams['font.family'] = 'STIXGeneral'
@@ -118,7 +116,7 @@ def plot_distributions(pred_vector, true_vector, method=1):
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, -2), textcoords="offset points", xytext=(0,10), ha='left')
 		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -5), textcoords="offset points", xytext=(0,10), ha='left')
 		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -2), textcoords="offset points", xytext=(0,-30), ha='left')
-	ax1.set_xlabel('Decision Function $\Phi$')
+	ax1.set_xlabel('Decision Function $\phi$')
 	ax1.set_ylabel('Privacy Leakage Metrics')
 	ax2.set_ylabel('False Positive Rate')
 	ax1.set_yticks(np.arange(0, 1.1, step=0.2))
@@ -127,7 +125,7 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	plt.show()
 
 
-def plot_advantage(result):
+def generate_plots(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	adv_y_mi_1, adv_y_mi_2, adv_y_ai_1, adv_y_ai_2, adv_p_mi_1, adv_p_mi_2, adv_p_ai_1, adv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	ppv_y_mi_1, ppv_y_mi_2, ppv_y_ai_1, ppv_y_ai_2, ppv_p_mi_1, ppv_p_mi_2, ppv_p_ai_1, ppv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
@@ -142,20 +140,37 @@ def plot_advantage(result):
 		plot_distributions(counts, membership, 2)
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
-		adv_p_mi_1[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-		adv_p_mi_2[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
-		ppv_p_mi_1[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-		ppv_p_mi_2[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
+		adv_p_mi_1[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+		adv_p_mi_2[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+		ppv_p_mi_1[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+		ppv_p_mi_2[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 		adv_y_mi_1[run] = get_adv(membership, yeom_mi_outputs_1)
 		adv_y_mi_2[run] = get_adv(membership, yeom_mi_outputs_2)
 		ppv_y_mi_1[run] = get_ppv(membership, yeom_mi_outputs_1)
 		ppv_y_mi_2[run] = get_ppv(membership, yeom_mi_outputs_2)
+		for i in range(5):
+			adv_p_ai_1[run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+			adv_p_ai_2[run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+			ppv_p_ai_1[run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+			ppv_p_ai_2[run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+			adv_y_ai_1[run*5 + i] = get_adv(membership, yeom_ai_outputs_1[i])
+			adv_y_ai_2[run*5 + i] = get_adv(membership, yeom_ai_outputs_2[i])
+			ppv_y_ai_1[run*5 + i] = get_ppv(membership, yeom_ai_outputs_1[i])
+			ppv_y_ai_2[run*5 + i] = get_ppv(membership, yeom_ai_outputs_2[i])
 		pred1.append(yeom_mi_outputs_1)
 		pred2.append(yeom_mi_outputs_2)
-		pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-		pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
+		pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+		pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
+	print('Yeom MI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
+	print('Yeom MI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
+	print('Proposed MI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_p_mi_1), np.mean(ppv_p_mi_1)))
+	print('Proposed MI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_p_mi_2), np.mean(ppv_p_mi_2)))
+	print('\nYeom AI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
+	print('Yeom AI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
+	print('Proposed AI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
+	print('Proposed AI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_p_ai_2), np.mean(ppv_p_ai_2)))
 	'''
 	print('MI Results on Non private model')
 	print('Yeom method 1')
@@ -187,29 +202,29 @@ def plot_advantage(result):
 				train_loss, train_acc, test_loss, test_acc = aux
 				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				test_acc_vec[a, run] = test_acc
-				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
-				ppv_p_mi_1[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-				ppv_p_mi_2[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
-				'''
+				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+				ppv_p_mi_1[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+				ppv_p_mi_2[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+				
 				for i in range(5):
 					adv_y_ai_1[a, run*5 + i] = get_adv(membership, yeom_ai_outputs_1[i])
 					adv_y_ai_2[a, run*5 + i] = get_adv(membership, yeom_ai_outputs_2[i])
 					ppv_y_ai_1[a, run*5 + i] = get_ppv(membership, yeom_ai_outputs_1[i])
 					ppv_y_ai_2[a, run*5 + i] = get_ppv(membership, yeom_ai_outputs_2[i])
-					adv_p_ai_1[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=ALPHA))
-					adv_p_ai_2[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=ALPHA))
-					ppv_p_ai_1[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=ALPHA))
-					ppv_p_ai_2[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=ALPHA))
-				'''
+					adv_p_ai_1[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+					adv_p_ai_2[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+					ppv_p_ai_1[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+					ppv_p_ai_2[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+				
 				adv_y_mi_1[a, run] = get_adv(membership, yeom_mi_outputs_1)
 				adv_y_mi_2[a, run] = get_adv(membership, yeom_mi_outputs_2)
 				ppv_y_mi_1[a, run] = get_ppv(membership, yeom_mi_outputs_1)
 				ppv_y_mi_2[a, run] = get_ppv(membership, yeom_mi_outputs_2)
 				pred1.append(yeom_mi_outputs_1)
 				pred2.append(yeom_mi_outputs_2)
-				pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=ALPHA))
-				pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=ALPHA))
+				pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+				pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 			'''
 			print('\n'+str(eps)+'\n')
 			print('Yeom method 1')
@@ -224,50 +239,97 @@ def plot_advantage(result):
 		if args.plot == 'acc':
 			y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
 			plt.errorbar(EPSILONS, 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'adv':
-			y[dp] = adv_y_mi_1
-			plt.errorbar(EPSILONS, np.mean(adv_y_mi_1, axis=1), yerr=np.std(adv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
-			plt.errorbar(EPSILONS, np.mean(adv_y_mi_2, axis=1), yerr=np.std(adv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
-			plt.errorbar(EPSILONS, np.mean(adv_p_mi_1, axis=1), yerr=np.std(adv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
-			plt.errorbar(EPSILONS, np.mean(adv_p_mi_2, axis=1), yerr=np.std(adv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
-		elif args.plot == 'ppv':
-			y[dp] = ppv_y_mi_1
-			plt.errorbar(EPSILONS, np.mean(ppv_y_mi_1, axis=1), yerr=np.std(ppv_y_mi_1, axis=1), color=str(color+0.5), fmt='-.', capsize=2, label='Yeom\'s MI Attack 1')
-			plt.errorbar(EPSILONS, np.mean(ppv_y_mi_2, axis=1), yerr=np.std(ppv_y_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='Yeom\'s MI Attack 2')
-			plt.errorbar(EPSILONS, np.mean(ppv_p_mi_1, axis=1), yerr=np.std(ppv_p_mi_1, axis=1), color=str(color+0.5), fmt='-', capsize=2, label='Proposed MI Attack 1')
-			plt.errorbar(EPSILONS, np.mean(ppv_p_mi_2, axis=1), yerr=np.std(ppv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='Proposed MI Attack 2')
+		elif args.plot == 'mi':
+			if args.metric == 'adv':
+				if alpha == None:
+					plt.errorbar(EPSILONS, np.mean(adv_y_mi_1, axis=1), yerr=np.std(adv_y_mi_1, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom MI 1')
+					plt.errorbar(EPSILONS, np.mean(adv_y_mi_2, axis=1), yerr=np.std(adv_y_mi_2, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom MI 2')
+				plt.errorbar(EPSILONS, np.mean(adv_p_mi_1, axis=1), yerr=np.std(adv_p_mi_1, axis=1), color=str(color), fmt='-', capsize=2, label='MI 1')
+				plt.errorbar(EPSILONS, np.mean(adv_p_mi_2, axis=1), yerr=np.std(adv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='MI 2')
+			elif args.metric == 'ppv':
+				if alpha == None:
+					plt.errorbar(EPSILONS, np.mean(ppv_y_mi_1, axis=1), yerr=np.std(ppv_y_mi_1, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom MI 1')
+					plt.errorbar(EPSILONS, np.mean(ppv_y_mi_2, axis=1), yerr=np.std(ppv_y_mi_2, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom MI 2')
+				plt.errorbar(EPSILONS, np.mean(ppv_p_mi_1, axis=1), yerr=np.std(ppv_p_mi_1, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 1')
+				plt.errorbar(EPSILONS, np.mean(ppv_p_mi_2, axis=1), yerr=np.std(ppv_p_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 2')
+		elif args.plot == 'ai':
+			if args.metric == 'adv':
+				if alpha == None:
+					plt.errorbar(EPSILONS, np.mean(adv_y_ai_1, axis=1), yerr=np.std(adv_y_ai_1, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom AI 1')
+					plt.errorbar(EPSILONS, np.mean(adv_y_ai_2, axis=1), yerr=np.std(adv_y_ai_2, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom AI 2')
+				plt.errorbar(EPSILONS, np.mean(adv_p_ai_1, axis=1), yerr=np.std(adv_p_ai_1, axis=1), color=str(color), fmt='-', capsize=2, label='MI 1')
+				plt.errorbar(EPSILONS, np.mean(adv_p_ai_2, axis=1), yerr=np.std(adv_p_ai_2, axis=1), color=str(color), fmt='-', capsize=2, label='MI 2')
+			elif args.metric == 'ppv':
+				if alpha == None:
+					plt.errorbar(EPSILONS, np.mean(ppv_y_ai_1, axis=1), yerr=np.std(ppv_y_ai_1, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom AI 1')
+					plt.errorbar(EPSILONS, np.mean(ppv_y_ai_2, axis=1), yerr=np.std(ppv_y_ai_2, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom AI 2')
+				plt.errorbar(EPSILONS, np.mean(ppv_p_ai_1, axis=1), yerr=np.std(ppv_p_ai_1, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 1')
+				plt.errorbar(EPSILONS, np.mean(ppv_p_ai_2, axis=1), yerr=np.std(ppv_p_ai_2, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 2')
 		color += 0.2
 
+	if args.plot == 'mi':
+		yeom_1_adv = adv_y_mi_1
+		yeom_2_adv = adv_y_mi_2
+		our_1_adv = adv_p_mi_1
+		our_2_adv = adv_p_mi_2
+		yeom_1_ppv = ppv_y_mi_1
+		yeom_2_ppv = ppv_y_mi_2
+		our_1_ppv = ppv_p_mi_1
+		our_2_ppv = ppv_p_mi_2
+		yeom_1_label = "Yeom MI 1"
+		yeom_2_label = "Yeom MI 2"
+		our_1_label = "MI 1"
+		our_2_label = "MI 2"
+	elif args.plot == 'ai':
+		yeom_1_adv = adv_y_ai_1
+		yeom_2_adv = adv_y_ai_2
+		our_1_adv = adv_p_ai_1
+		our_2_adv = adv_p_ai_2
+		yeom_1_ppv = ppv_y_ai_1
+		yeom_2_ppv = ppv_y_ai_2
+		our_1_ppv = ppv_p_ai_1
+		our_2_ppv = ppv_p_ai_2
+		yeom_1_label = "Yeom AI 1"
+		yeom_2_label = "Yeom AI 2"
+		our_1_label = "AI 1"
+		our_2_label = "AI 2"
 	plt.xscale('log')
-	plt.xlabel('Privacy Budget ($\epsilon$)')
-
+	plt.xlabel('Privacy Budget ($\epsilon$)')	
 	if args.plot == 'acc':
 		plt.ylabel('Accuracy Loss')
 		plt.yticks(np.arange(0, 1.1, step=0.2))
 		plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 2), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
 		plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 2), textcoords="offset points", xytext=(-20, -10), ha='right', color=str(0.1))
-	elif args.plot == 'adv':
+		plt.tight_layout()
+	else:
 		bottom, top = plt.ylim()
-		plt.errorbar(EPS, yeoms_limit(EPS), color='black', fmt='--', capsize=2, label='Old Theoretical Limit')
-		plt.errorbar(EPS, improved_limit(EPS), color='black', fmt='--', capsize=2, label='Improved Limit')
-		plt.ylim(bottom, 1)
-		plt.annotate("Yeom's", pretty_position(EPS, yeoms_limit(EPS), 55), textcoords="offset points", xytext=(-70,0), ha='left')
-		plt.annotate("Bound", pretty_position(EPS, yeoms_limit(EPS), 55), textcoords="offset points", xytext=(-70,-20), ha='left')
-		plt.annotate("Improved Bound", pretty_position(EPS, improved_limit(EPS), 500), textcoords="offset points", xytext=(0,-20), ha='left')
-		plt.annotate("MI-1", pretty_position(EPSILONS, np.mean(adv_p_mi_1, axis=1), 3), textcoords="offset points", xytext=(0,10), ha='left', color=str(0.6))
-		plt.annotate("MI-2", pretty_position(EPSILONS, np.mean(adv_p_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,-10), ha='left', color=str(0.1))
-		plt.annotate("Baseline-1", pretty_position(EPSILONS, np.mean(adv_y_mi_1, axis=1), 0), textcoords="offset points", xytext=(0,10), ha='left', color=str(0.6))
-		plt.annotate("Baseline-2", pretty_position(EPSILONS, np.mean(adv_y_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,-10), ha='left', color=str(0.1))
-		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.ylabel('$Adv_\mathcal{A}$')
-	elif args.plot == 'ppv':
-		bottom, top = plt.ylim()
-		plt.errorbar(EPS, [ppv_lim(eps, delta=delta, alpha=ALPHA) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
-		plt.ylim(bottom, 1)
-		plt.annotate("$\epsilon$-DP Bound", pretty_position(EPS, [ppv_lim(eps, delta=delta, alpha=ALPHA) for eps in EPS], 1000), textcoords="offset points", xytext=(-10,-15), ha='left')
-		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.ylabel('$PPV_\mathcal{A}$')
-	plt.tight_layout()
+		if args.metric == 'adv':
+			if alpha == None:
+				plt.errorbar(EPS, improved_limit(EPS), color='black', fmt='--', capsize=2, label='Improved Limit')
+				plt.annotate("$Adv_\mathcal{A}$ Bound", pretty_position(EPS, improved_limit(EPS), 50), textcoords="offset points", xytext=(0,-20), ha='left')
+				plt.annotate(yeom_1_label, pretty_position(EPSILONS, np.mean(yeom_1_adv, axis=1), 0), textcoords="offset points", xytext=(-40,20), ha='left', color=str(0.5))
+				plt.annotate(yeom_2_label, pretty_position(EPSILONS, np.mean(yeom_2_adv, axis=1), 4), textcoords="offset points", xytext=(-20,-30), ha='left', color=str(0.5))
+			else:
+				plt.errorbar(EPS, [adv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
+				plt.annotate("$Adv_\mathcal{A}$ Bound", pretty_position(EPS, [adv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], 100), textcoords="offset points", xytext=(-5,0), ha='right')
+			plt.ylim(0, 0.3)
+			plt.yticks(np.arange(0, 0.31, step=0.05))
+			plt.annotate(our_1_label, pretty_position(EPSILONS, np.mean(our_1_adv, axis=1), 3), textcoords="offset points", xytext=(-10,20), ha='left', color=str(0.1))
+			plt.annotate(our_2_label, pretty_position(EPSILONS, np.mean(our_2_adv, axis=1), 4), textcoords="offset points", xytext=(0,20), ha='left', color=str(0.1))	
+			plt.ylabel('$Adv_\mathcal{A}$')
+		elif args.metric == 'ppv':
+			if alpha == None:
+				plt.annotate(yeom_1_label, pretty_position(EPSILONS, np.mean(yeom_1_ppv, axis=1), 0), textcoords="offset points", xytext=(-40,20), ha='left', color=str(0.5))
+				plt.annotate(yeom_2_label, pretty_position(EPSILONS, np.mean(yeom_2_ppv, axis=1), 4), textcoords="offset points", xytext=(-20,-20), ha='left', color=str(0.5))
+			else:
+				plt.errorbar(EPS, [ppv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
+				plt.annotate("$PPV_\mathcal{A}$ Bound", pretty_position(EPS, [ppv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], 30), textcoords="offset points", xytext=(5,0), ha='left')
+			plt.ylim(0.5, 0.62)
+			plt.yticks(np.arange(0.5, 0.63, step=0.02))
+			plt.annotate(our_1_label, pretty_position(EPSILONS, np.mean(our_1_ppv, axis=1), 3), textcoords="offset points", xytext=(-10,20), ha='left', color=str(0.1))
+			plt.annotate(our_2_label, pretty_position(EPSILONS, np.mean(our_2_ppv, axis=1), 4), textcoords="offset points", xytext=(0,-20), ha='left', color=str(0.1))	
+			plt.ylabel('$PPV_\mathcal{A}$')
+		plt.tight_layout()
 	plt.show()
 	
 
@@ -301,11 +363,6 @@ def _members_revealed(membership, prediction, acceptable_fpr):
 	tp = [a*b for a,b in zip(preds,membership)]
 	revealed = list(map(lambda i: i if tp[i] == 1 else None, range(len(tp))))
 	return set(list(filter(lambda x: x != None, revealed)))
-
-
-def get_ppv(mem, pred):
-	tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
-	return tp / (tp + fp)
 
 
 def ppv_across_runs(mem, pred):
@@ -363,20 +420,25 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
 	parser.add_argument('--model', type=str, default='nn')
-	parser.add_argument('--l2_ratio', type=str, default='1e-5')
+	parser.add_argument('--l2_ratio', type=str, default='1e-08')
+	parser.add_argument('--gamma', type=int, default=1)
+	parser.add_argument('--alpha', type=float, default=None)
 	parser.add_argument('--function', type=int, default=1)
 	parser.add_argument('--plot', type=str, default='acc')
+	parser.add_argument('--metric', type=str, default='adv')
 	parser.add_argument('--fpr_threshold', type=float, default=0.01)
 	parser.add_argument('--silent', type=int, default=1)
 	args = parser.parse_args()
 	print(vars(args))
 
+	gamma = args.gamma
+	alpha = args.alpha
 	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.function == 1:
-		plot_advantage(result) # plot the utility and privacy loss graphs
+		generate_plots(result) # plot the utility and privacy loss graphs
 	elif args.function == 2:
 		members_revealed_fixed_fpr(result) # return the number of members revealed for different FPR rates
 	else:
