@@ -1,6 +1,6 @@
 from sklearn.metrics import roc_curve, confusion_matrix
 from scipy import stats
-from utilities import get_adv, get_ppv, get_inference_threshold, plot_histogram, plot_sign_histogram
+from utilities import get_tp_adv_ppv, get_ppv, get_inference_threshold, plot_histogram, plot_sign_histogram
 from attack import evaluate_proposed_membership_inference
 import matplotlib.pyplot as plt
 import numpy as np
@@ -129,48 +129,50 @@ def generate_plots(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	adv_y_mi_1, adv_y_mi_2, adv_y_ai_1, adv_y_ai_2, adv_p_mi_1, adv_p_mi_2, adv_p_ai_1, adv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	ppv_y_mi_1, ppv_y_mi_2, ppv_y_ai_1, ppv_y_ai_2, ppv_p_mi_1, ppv_p_mi_2, ppv_p_ai_1, ppv_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
-	pred1, pred2, pred3, pred4 = [], [], [], []
+	tp_y_mi_1, tp_y_mi_2, tp_y_ai_1, tp_y_ai_2, tp_p_mi_1, tp_p_mi_2, tp_p_ai_1, tp_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
+	#pred1, pred2, pred3, pred4 = [], [], [], []
 	for run in RUNS:
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-		plot_histogram(per_instance_loss)
-		plot_distributions(per_instance_loss, membership)
-		plot_sign_histogram(membership, counts, 100)
-		plot_distributions(counts, membership, 2)
+		#plot_histogram(per_instance_loss)
+		#plot_distributions(per_instance_loss, membership)
+		#plot_sign_histogram(membership, counts, 100)
+		#plot_distributions(counts, membership, 2)
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
-		adv_p_mi_1[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-		adv_p_mi_2[run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
-		ppv_p_mi_1[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-		ppv_p_mi_2[run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
-		adv_y_mi_1[run] = get_adv(membership, yeom_mi_outputs_1)
-		adv_y_mi_2[run] = get_adv(membership, yeom_mi_outputs_2)
-		ppv_y_mi_1[run] = get_ppv(membership, yeom_mi_outputs_1)
-		ppv_y_mi_2[run] = get_ppv(membership, yeom_mi_outputs_2)
+		
+		tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+		tp_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = tp, adv, ppv
+		tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+		tp_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = tp, adv, ppv
+		tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_1)
+		tp_y_mi_1[run], adv_y_mi_1[run], ppv_y_mi_1[run] = tp, adv, ppv
+		tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_2)
+		tp_y_mi_2[run], adv_y_mi_2[run], ppv_y_mi_2[run] = tp, adv, ppv
 		for i in range(5):
-			adv_p_ai_1[run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
-			adv_p_ai_2[run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
-			ppv_p_ai_1[run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
-			ppv_p_ai_2[run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
-			adv_y_ai_1[run*5 + i] = get_adv(membership, yeom_ai_outputs_1[i])
-			adv_y_ai_2[run*5 + i] = get_adv(membership, yeom_ai_outputs_2[i])
-			ppv_y_ai_1[run*5 + i] = get_ppv(membership, yeom_ai_outputs_1[i])
-			ppv_y_ai_2[run*5 + i] = get_ppv(membership, yeom_ai_outputs_2[i])
-		pred1.append(yeom_mi_outputs_1)
-		pred2.append(yeom_mi_outputs_2)
-		pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-		pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+			tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+			tp_p_ai_1[run*5 + i], adv_p_ai_1[run*5 + i], ppv_p_ai_1[run*5 + i] = tp, adv, ppv
+			tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+			tp_p_ai_2[run*5 + i], adv_p_ai_2[run*5 + i], ppv_p_ai_2[run*5 + i] = tp, adv, ppv
+			tp, adv, ppv = get_tp_adv_ppv(membership, yeom_ai_outputs_1[i])
+			tp_y_ai_1[run*5 + i], adv_y_ai_1[run*5 + i], ppv_y_ai_1[run*5 + i] = tp, adv, ppv
+			tp, adv, ppv = get_tp_adv_ppv(membership, yeom_ai_outputs_2[i])
+			tp_y_ai_2[run*5 + i], adv_y_ai_2[run*5 + i], ppv_y_ai_2[run*5 + i] = tp, adv, ppv
+		#pred1.append(yeom_mi_outputs_1)
+		#pred2.append(yeom_mi_outputs_2)
+		#pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+		#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-	print('Yeom MI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
-	print('Yeom MI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
-	print('Proposed MI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_p_mi_1), np.mean(ppv_p_mi_1)))
-	print('Proposed MI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_p_mi_2), np.mean(ppv_p_mi_2)))
-	print('\nYeom AI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
-	print('Yeom AI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
-	print('Proposed AI 1:\n Adv: %f, PPV: %f' % (np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
-	print('Proposed AI 2:\n Adv: %f, PPV: %f' % (np.mean(adv_p_ai_2), np.mean(ppv_p_ai_2)))
+	print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1), np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
+	print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2), np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
+	print('Proposed MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_1), np.mean(adv_p_mi_1), np.mean(ppv_p_mi_1)))
+	print('Proposed MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_2), np.mean(adv_p_mi_2), np.mean(ppv_p_mi_2)))
+	print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1), np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
+	print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2), np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
+	print('Proposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1), np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
+	print('Proposed AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_2), np.mean(adv_p_ai_2), np.mean(ppv_p_ai_2)))
 	'''
 	print('MI Results on Non private model')
 	print('Yeom method 1')
@@ -192,39 +194,35 @@ def generate_plots(result):
 		test_acc_vec = np.zeros((A, B))
 		adv_y_mi_1, adv_y_mi_2, adv_y_ai_1, adv_y_ai_2, adv_p_mi_1, adv_p_mi_2, adv_p_ai_1, adv_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
 		ppv_y_mi_1, ppv_y_mi_2, ppv_y_ai_1, ppv_y_ai_2, ppv_p_mi_1, ppv_p_mi_2, ppv_p_ai_1, ppv_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
+		tp_y_mi_1, tp_y_mi_2, tp_y_ai_1, tp_y_ai_2, tp_p_mi_1, tp_p_mi_2, tp_p_ai_1, tp_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
 		for a, eps in enumerate(EPSILONS):
-			if eps > 100 and dp == 'gdp_':
-				test_acc_vec = test_acc_vec[:a]
-				continue
-			pred1, pred2, pred3, pred4 = [], [], [], []
+			#pred1, pred2, pred3, pred4 = [], [], [], []
 			for run in RUNS:
 				aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
 				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				test_acc_vec[a, run] = test_acc
-				adv_p_mi_1[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-				adv_p_mi_2[a, run] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
-				ppv_p_mi_1[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-				ppv_p_mi_2[a, run] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
-				
+				tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+				tp_p_mi_1[a, run], adv_p_mi_1[a, run], ppv_p_mi_1[a, run] = tp, adv, ppv
+				tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+				tp_p_mi_2[a, run], adv_p_mi_2[a, run], ppv_p_mi_2[a, run] = tp, adv, ppv
+				tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_1)
+				tp_y_mi_1[a, run], adv_y_mi_1[a, run], ppv_y_mi_1[a, run] = tp, adv, ppv
+				tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_2)
+				tp_y_mi_2[a, run], adv_y_mi_2[a, run], ppv_y_mi_2[a, run] = tp, adv, ppv
 				for i in range(5):
-					adv_y_ai_1[a, run*5 + i] = get_adv(membership, yeom_ai_outputs_1[i])
-					adv_y_ai_2[a, run*5 + i] = get_adv(membership, yeom_ai_outputs_2[i])
-					ppv_y_ai_1[a, run*5 + i] = get_ppv(membership, yeom_ai_outputs_1[i])
-					ppv_y_ai_2[a, run*5 + i] = get_ppv(membership, yeom_ai_outputs_2[i])
-					adv_p_ai_1[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
-					adv_p_ai_2[a, run*5 + i] = get_adv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
-					ppv_p_ai_1[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
-					ppv_p_ai_2[a, run*5 + i] = get_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
-				
-				adv_y_mi_1[a, run] = get_adv(membership, yeom_mi_outputs_1)
-				adv_y_mi_2[a, run] = get_adv(membership, yeom_mi_outputs_2)
-				ppv_y_mi_1[a, run] = get_ppv(membership, yeom_mi_outputs_1)
-				ppv_y_mi_2[a, run] = get_ppv(membership, yeom_mi_outputs_2)
-				pred1.append(yeom_mi_outputs_1)
-				pred2.append(yeom_mi_outputs_2)
-				pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
-				pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
+					tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
+					tp_p_ai_1[a, run*5 + i], adv_p_ai_1[a, run*5 + i], ppv_p_ai_1[a, run*5 + i] = tp, adv, ppv
+					tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=2, fpr_threshold=alpha))
+					tp_p_ai_2[a, run*5 + i], adv_p_ai_2[a, run*5 + i], ppv_p_ai_2[a, run*5 + i] = tp, adv, ppv
+					tp, adv, ppv = get_tp_adv_ppv(membership, yeom_ai_outputs_1[i])
+					tp_y_ai_1[a, run*5 + i], adv_y_ai_1[a, run*5 + i], ppv_y_ai_1[a, run*5 + i] = tp, adv, ppv
+					tp, adv, ppv = get_tp_adv_ppv(membership, yeom_ai_outputs_2[i])
+					tp_y_ai_2[a, run*5 + i], adv_y_ai_2[a, run*5 + i], ppv_y_ai_2[a, run*5 + i] = tp, adv, ppv
+				#pred1.append(yeom_mi_outputs_1)
+				#pred2.append(yeom_mi_outputs_2)
+				#pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
+				#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 			'''
 			print('\n'+str(eps)+'\n')
 			print('Yeom method 1')
@@ -236,6 +234,15 @@ def generate_plots(result):
 			print('Our method 2')
 			ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
 			'''
+			print('\n'+str(eps)+'\n')
+			print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a])))
+			print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2[a]), np.mean(adv_y_mi_2[a]), np.mean(ppv_y_mi_2[a])))
+			print('Proposed MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a])))
+			print('Proposed MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a])))
+			print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1[a]), np.mean(adv_y_ai_1[a]), np.mean(ppv_y_ai_1[a])))
+			print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2[a]), np.mean(adv_y_ai_2[a]), np.mean(ppv_y_ai_2[a])))
+			print('Proposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(adv_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))
+			print('Proposed AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_2[a]), np.mean(adv_p_ai_2[a]), np.mean(ppv_p_ai_2[a])))
 		if args.plot == 'acc':
 			y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
 			plt.errorbar(EPSILONS, 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])

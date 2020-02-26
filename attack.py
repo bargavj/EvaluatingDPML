@@ -1,5 +1,5 @@
 from classifier import train as train_model, get_predictions
-from utilities import log_loss, prety_print_result, get_inference_threshold, generate_noise, get_random_features, get_attribute_variations, plot_sign_histogram
+from utilities import log_loss, prety_print_result, get_inference_threshold, generate_noise, get_random_features, get_attribute_variations
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_curve
 from scipy import stats
