@@ -102,15 +102,17 @@ def plot_sign_histogram(membership, signs, trials):
 def plot_histogram(vector):
     mem = vector[:10000]
     non_mem = vector[10000:]
-    data, bins, _ = plt.hist([mem, non_mem], bins=loss_range())
+    true_vector = np.concatenate((np.ones(10000, dtype='int32'), np.zeros(len(vector) - 10000, dtype='int32')))
+    fpr, tpr, phi = roc_curve(true_vector, vector, pos_label=1)
+    data, bins, _ = plt.hist([mem, non_mem], bins=list(reversed(phi)))
     plt.clf()
     mem_hist = np.array(data[0])
     non_mem_hist = np.array(data[1])
     plt.plot(bins[:-1], mem_hist / len(mem), label='Members')
     plt.plot(bins[:-1], non_mem_hist / len(non_mem), label='Non Members')
     plt.xscale('log')
-    plt.yticks(np.arange(0, 0.21, step=0.05))
-    plt.ylim(0, 0.2)
+    plt.yticks(np.arange(0, 0.11, step=0.02))
+    plt.ylim(0, 0.1)
     plt.xlabel('Per-Instance Loss')
     plt.ylabel('Fraction of Instances')
     plt.legend()
