@@ -10,7 +10,8 @@ import argparse
 
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
-EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+#EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+EPSILONS = [1.0, 10.0, 100.0]
 PERTURBATION = 'grad_pert_'
 DP = ['gdp_']
 TYPE = ['o-', '.-']
@@ -74,9 +75,11 @@ def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=Non
 	if proposed_ai_outputs == None:
 		if method == 1:
 			thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
+			print(thresh)
 			return np.where(per_instance_loss <= -thresh, 1, 0)
 		else:
 			thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
+			print(thresh)
 			return np.where(counts >= thresh, 1, 0)
 	else:
 		true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
@@ -103,13 +106,15 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	PPV_A = tpr / (tpr + gamma * fpr)
 	Adv_A = tpr - fpr
 	fig, ax1 = plt.subplots()
+	if method == 1:
+		phi, fpr, Adv_A, PPV_A = phi[:-1], fpr[:-1], Adv_A[:-1], PPV_A[:-1]
 	ax1.plot(phi, Adv_A, label="Adv", color='black')
 	ax1.plot(phi, PPV_A, label="PPV", color='black')
 	ax2 = ax1.twinx()
 	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
 	if method == 1:
 		ax1.set_xscale('log')
-		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(0,10), ha='right')
+		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-18,-20), ha='right')
 		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-10,10), ha='right')
 		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-10,-10), ha='right')
 	else:
@@ -136,21 +141,25 @@ def generate_plots(result):
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		print('Yeom phi: %f' % train_loss)
 		plot_histogram(per_instance_loss)
 		#plot_distributions(per_instance_loss, membership)
-		#plot_sign_histogram(membership, counts, 100)
+		plot_sign_histogram(membership, counts, 100)
 		#plot_distributions(counts, membership, 2)
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
 		
+		print("MI 1")
 		tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
 		tp_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = tp, adv, ppv
+		print("MI 2")
 		tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 		tp_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = tp, adv, ppv
 		tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_1)
 		tp_y_mi_1[run], adv_y_mi_1[run], ppv_y_mi_1[run] = tp, adv, ppv
 		tp, adv, ppv = get_tp_adv_ppv(membership, yeom_mi_outputs_2)
 		tp_y_mi_2[run], adv_y_mi_2[run], ppv_y_mi_2[run] = tp, adv, ppv
+		'''
 		for i in range(5):
 			tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=alpha))
 			tp_p_ai_1[run*5 + i], adv_p_ai_1[run*5 + i], ppv_p_ai_1[run*5 + i] = tp, adv, ppv
@@ -160,20 +169,21 @@ def generate_plots(result):
 			tp_y_ai_1[run*5 + i], adv_y_ai_1[run*5 + i], ppv_y_ai_1[run*5 + i] = tp, adv, ppv
 			tp, adv, ppv = get_tp_adv_ppv(membership, yeom_ai_outputs_2[i])
 			tp_y_ai_2[run*5 + i], adv_y_ai_2[run*5 + i], ppv_y_ai_2[run*5 + i] = tp, adv, ppv
+		'''
 		#pred1.append(yeom_mi_outputs_1)
 		#pred2.append(yeom_mi_outputs_2)
 		#pred3.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
 		#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-	#print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1), np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
+	print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1), np.mean(adv_y_mi_1), np.mean(ppv_y_mi_1)))
 	#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2), np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
-	print('Proposed MI 1:\n TP: %d, PPV: %f' % (np.mean(tp_p_mi_1), np.mean(ppv_p_mi_1)))
-	print('Proposed MI 2:\n TP: %d, PPV: %f' % (np.mean(tp_p_mi_2), np.mean(ppv_p_mi_2)))
+	print('Proposed MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_1), np.mean(adv_p_mi_1), np.mean(ppv_p_mi_1)))
+	print('Proposed MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_2), np.mean(adv_p_mi_2), np.mean(ppv_p_mi_2)))
 	#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1), np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
 	#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2), np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
-	print('\nProposed AI 1:\n TP: %d, PPV: %f' % (np.mean(tp_p_ai_1), np.mean(ppv_p_ai_1)))
-	print('Proposed AI 2:\n TP: %d, PPV: %f' % (np.mean(tp_p_ai_2), np.mean(ppv_p_ai_2)))
+	print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1), np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
+	print('Proposed AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_2), np.mean(adv_p_ai_2), np.mean(ppv_p_ai_2)))
 	'''
 	print('MI Results on Non private model')
 	print('Yeom method 1')
@@ -203,6 +213,11 @@ def generate_plots(result):
 				train_loss, train_acc, test_loss, test_acc = aux
 				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				test_acc_vec[a, run] = test_acc
+				#print(eps, run)
+				#plot_histogram(per_instance_loss)
+				#plot_distributions(per_instance_loss, membership)
+				#plot_sign_histogram(membership, counts, 100)
+				#plot_distributions(counts, membership, 2)
 				tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha))
 				tp_p_mi_1[a, run], adv_p_mi_1[a, run], ppv_p_mi_1[a, run] = tp, adv, ppv
 				tp, adv, ppv = get_tp_adv_ppv(membership, get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
@@ -238,12 +253,12 @@ def generate_plots(result):
 			print('\n'+str(eps)+'\n')
 			#print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a])))
 			#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2[a]), np.mean(adv_y_mi_2[a]), np.mean(ppv_y_mi_2[a])))
-			print('Proposed MI 1:\n TP: %d, PPV: %f' % (np.mean(tp_p_mi_1[a]), np.mean(ppv_p_mi_1[a])))
-			print('Proposed MI 2:\n TP: %d, PPV: %f' % (np.mean(tp_p_mi_2[a]), np.mean(ppv_p_mi_2[a])))
+			print('Proposed MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a])))
+			print('Proposed MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a])))
 			#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1[a]), np.mean(adv_y_ai_1[a]), np.mean(ppv_y_ai_1[a])))
 			#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2[a]), np.mean(adv_y_ai_2[a]), np.mean(ppv_y_ai_2[a])))
-			print('\nProposed AI 1:\n TP: %d, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))
-			print('Proposed AI 2:\n TP: %d, PPV: %f' % (np.mean(tp_p_ai_2[a]), np.mean(ppv_p_ai_2[a])))
+			print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(adv_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))
+			print('Proposed AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_2[a]), np.mean(adv_p_ai_2[a]), np.mean(ppv_p_ai_2[a])))
 		if args.plot == 'acc':
 			y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
 			plt.errorbar(EPSILONS, 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])

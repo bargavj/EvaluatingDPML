@@ -39,7 +39,8 @@ def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
     return alpha_thresh
 
 def loss_range():
-	return list(np.arange(0, -np.log(SMALL_VALUE), 0.0001))
+	return [10**i for i in np.arange(-7, 1, 0.1)]
+	#return list(np.arange(0, -np.log(SMALL_VALUE), 0.0001))
 
 def log_loss(a, b):
 	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
@@ -88,8 +89,8 @@ def plot_sign_histogram(membership, signs, trials):
             mem[signs[i]] += 1
         else:
             non_mem[signs[i]] += 1
-    plt.plot(np.arange(trials + 1), mem / mem_size, label='Members')
-    plt.plot(np.arange(trials + 1), non_mem / non_mem_size, label='Non Members')
+    plt.plot(np.arange(trials + 1), mem / mem_size, 'k-', label='Members')
+    plt.plot(np.arange(trials + 1), non_mem / non_mem_size, 'k--', label='Non Members')
     plt.xlabel('Number of Times Loss Increases (out of '+str(trials)+')')
     plt.ylabel('Fraction of Instances')
     plt.xticks(list(range(0, trials + 1, trials // 5)))
@@ -102,15 +103,18 @@ def plot_sign_histogram(membership, signs, trials):
 def plot_histogram(vector):
     mem = vector[:10000]
     non_mem = vector[10000:]
-    true_vector = np.concatenate((np.ones(10000, dtype='int32'), np.zeros(len(vector) - 10000, dtype='int32')))
-    fpr, tpr, phi = roc_curve(true_vector, vector, pos_label=1)
-    data, bins, _ = plt.hist([mem, non_mem], bins=list(reversed(phi)))
+    #true_vector = np.concatenate((np.ones(10000, dtype='int32'), np.zeros(len(vector) - 10000, dtype='int32')))
+    #fpr, tpr, phi = roc_curve(true_vector, vector, pos_label=1)
+    #data, bins, _ = plt.hist([mem, non_mem], bins=list(reversed(phi)))
+    data, bins, _ = plt.hist([mem, non_mem], bins=loss_range())
     plt.clf()
     mem_hist = np.array(data[0])
     non_mem_hist = np.array(data[1])
-    plt.plot(bins[:-1], mem_hist / len(mem), label='Members')
-    plt.plot(bins[:-1], non_mem_hist / len(non_mem), label='Non Members')
+    plt.plot(bins[:-1], mem_hist / len(mem), 'k-', label='Members')
+    plt.plot(bins[:-1], non_mem_hist / len(non_mem), 'k--', label='Non Members')
     plt.xscale('log')
+    #plt.yscale('log')
+    plt.xticks([10**-6, 10**-4, 10**-2, 10**0])
     plt.yticks(np.arange(0, 0.11, step=0.02))
     plt.ylim(0, 0.1)
     plt.xlabel('Per-Instance Loss')
