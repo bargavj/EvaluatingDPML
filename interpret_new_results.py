@@ -24,7 +24,7 @@ delta = 1e-5
 plt.rcParams['mathtext.fontset'] = 'stix'
 plt.rcParams['font.family'] = 'STIXGeneral'
 #plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams.update({'font.size': 15})
+plt.rcParams.update({'font.size': 20})
 
 
 def f(eps, delta, alpha):
