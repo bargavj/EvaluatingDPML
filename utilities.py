@@ -20,11 +20,11 @@ def get_ppv(mem, pred):
     	return 0
     return tp / (tp + fp)
 
-def get_tp_adv_ppv(mem, pred):
+def get_fp_adv_ppv(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     if tp == fp == 0:
     	return 0, 0, 0
-    return tp, (tp / (tp + fn)) - (fp / (tn + fp)), tp / (tp + fp)
+    return fp, (tp / (tp + fn)) - (fp / (tn + fp)), tp / (tp + fp)
 
 def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
     fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
