@@ -95,6 +95,7 @@ def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=Non
 		mask = [a | b for a, b in zip(low_mem, high_mem)]
 		return thresh, mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
 
+
 def plot_distributions(pred_vector, true_vector, method=1):
 	fpr, tpr, phi = roc_curve(true_vector, pred_vector, pos_label=1)
 	fpr, tpr, phi = np.array(fpr), np.array(tpr), np.array(phi)
@@ -113,8 +114,8 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	if method == 1:
 		ax1.set_xscale('log')
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-5,10), ha='right')
-		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-10,10), ha='right')
-		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-10,-10), ha='right')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-10,10), ha='left')
+		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-20,-10), ha='right')
 	else:
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-20,0), ha='right')
 		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, 5), textcoords="offset points", xytext=(-10,10), ha='right')
@@ -127,6 +128,23 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	ax2.set_yticks(np.arange(0, 1.1, step=0.2))
 	fig.tight_layout()
 	plt.show()
+
+
+def analyse_most_vulnerable(values, membership, top_k=1, reverse=False):
+	vals = sorted(list(zip(values, membership, list(range(len(membership))))), key=(lambda x:x[0]), reverse=reverse)
+	vul_dict = {}
+	for val in vals:
+		if len(vul_dict) > top_k:
+			break
+		if val[0] not in vul_dict:
+			vul_dict[val[0]] = {0:[], 1:[]}
+		vul_dict[val[0]][val[1]].append(val[2])
+		dummy_key = val[0]
+	del vul_dict[dummy_key]
+	for key in vul_dict:
+		print(key, len(vul_dict[key][1]), len(vul_dict[key][0]))
+		#print(vul_dict[key][1], vul_dict[key][0])
+		print('')
 
 
 def generate_plots(result):
@@ -144,6 +162,8 @@ def generate_plots(result):
 		#plot_distributions(per_instance_loss, membership)
 		#plot_sign_histogram(membership, counts, 100)
 		#plot_distributions(counts, membership, 2)
+		#analyse_most_vulnerable(per_instance_loss, membership, top_k=5)
+		#analyse_most_vulnerable(counts, membership, top_k=5, reverse=True)
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
 		
@@ -174,10 +194,10 @@ def generate_plots(result):
 		#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.2f +/- %.2f\nAdv: %.2f +/- %.2f\nPPV: %.2f +/- %.2f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
+	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1+fpr_y_mi_1), np.std(adv_y_mi_1+fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
 	#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2), np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
-	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.2f +/- %.2f\nAdv: %.2f +/- %.2f\nPPV: %.2f +/- %.2f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
-	print('\nProposed MI 2:\nphi: %.2f +/- %.2f\nFPR: %.2f +/- %.2f\nAdv: %.2f +/- %.2f\nPPV: %.2f +/- %.2f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))
+	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
+	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))
 	#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1), np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
 	#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2), np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
 	#print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1), np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
@@ -217,6 +237,8 @@ def generate_plots(result):
 				#plot_distributions(per_instance_loss, membership)
 				#plot_sign_histogram(membership, counts, 100)
 				#plot_distributions(counts, membership, 2)
+				#analyse_most_vulnerable(per_instance_loss, membership, top_k=5)
+				#analyse_most_vulnerable(counts, membership, top_k=5, reverse=True)
 				thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha)
 				fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 				thresh_p_mi_1[a, run], fpr_p_mi_1[a, run], adv_p_mi_1[a, run], ppv_p_mi_1[a, run] = thresh, fp / (gamma * 10000), adv, ppv
@@ -256,8 +278,8 @@ def generate_plots(result):
 			print('\n'+str(eps)+'\n')
 			#print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a])))
 			#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2[a]), np.mean(adv_y_mi_2[a]), np.mean(ppv_y_mi_2[a])))
-			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.2f +/- %.2f\nAdv: %.2f +/- %.2f\nPPV: %.2f +/- %.2f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
-			print('\nProposed MI 2:\nphi: %.2f +/- %.2f\nFPR: %.2f +/- %.2f\nAdv: %.2f +/- %.2f\nPPV: %.2f +/- %.2f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
+			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.std(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
+			print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.std(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
 			#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1[a]), np.mean(adv_y_ai_1[a]), np.mean(ppv_y_ai_1[a])))
 			#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2[a]), np.mean(adv_y_ai_2[a]), np.mean(ppv_y_ai_2[a])))
 			#print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(adv_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))
