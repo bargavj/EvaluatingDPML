@@ -171,7 +171,7 @@ def generate_plots(result):
 		fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 		thresh_p_mi_1[run], fpr_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = thresh, fp / (gamma * 10000), adv, ppv
 		thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha)
-		tp, adv, ppv = get_fp_adv_ppv(membership, pred)
+		fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 		thresh_p_mi_2[run], fpr_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = thresh, fp / (gamma * 10000), adv, ppv
 		fp, adv, ppv = get_fp_adv_ppv(membership, yeom_mi_outputs_1)
 		thresh_y_mi_1[run], fpr_y_mi_1[run], adv_y_mi_1[run], ppv_y_mi_1[run] = train_loss, fp / (gamma * 10000), adv, ppv
@@ -194,10 +194,10 @@ def generate_plots(result):
 		#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1+fpr_y_mi_1), np.std(adv_y_mi_1+fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
+	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1+fpr_y_mi_1), np.std(adv_y_mi_1+fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
 	#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2), np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
-	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
-	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))
+	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
+	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))
 	#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1), np.mean(adv_y_ai_1), np.mean(ppv_y_ai_1)))
 	#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2), np.mean(adv_y_ai_2), np.mean(ppv_y_ai_2)))
 	#print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1), np.mean(adv_p_ai_1), np.mean(ppv_p_ai_1)))
@@ -275,11 +275,11 @@ def generate_plots(result):
 			print('Our method 2')
 			ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
 			'''
-			print('\n'+str(eps)+'\n')
+			#print('\n'+str(eps)+'\n')
 			#print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a])))
 			#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2[a]), np.mean(adv_y_mi_2[a]), np.mean(ppv_y_mi_2[a])))
-			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.std(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
-			print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.3f +/- %.3f\nTPR: %.3f +/- %.3f\nAdv: %.3f +/- %.3f\nPPV: %.3f +/- %.3f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.std(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
+			#print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.std(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
+			#print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.std(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
 			#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1[a]), np.mean(adv_y_ai_1[a]), np.mean(ppv_y_ai_1[a])))
 			#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2[a]), np.mean(adv_y_ai_2[a]), np.mean(ppv_y_ai_2[a])))
 			#print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(adv_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))
