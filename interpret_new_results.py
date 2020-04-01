@@ -11,7 +11,7 @@ import argparse
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 #EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
-EPSILONS = [1.0, 10.0, 100.0]
+EPSILONS = [100.0]
 PERTURBATION = 'grad_pert_'
 DP = ['gdp_']
 TYPE = ['o-', '.-']
@@ -158,6 +158,26 @@ def generate_plots(result):
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		m, nm = 0, 0
+		print("\nMI 1")
+		for i, val in enumerate(per_instance_loss):
+			if val == 0:
+				if membership[i] == 1:
+					m += 1
+				else:
+					nm += 1
+		print(m,nm)
+		print("\nMI 2")
+		m, nm = 0, 0
+		for i, val in enumerate(counts):
+			if val == 0:
+				if membership[i] == 1:
+					m += 1
+				else:
+					nm += 1
+		print(m,nm)
+		print(np.mean(counts[:10000]), np.std(counts[:10000]))
+		print(np.mean(counts[10000:]), np.std(counts[10000:]))
 		#plot_histogram(per_instance_loss)
 		#plot_distributions(per_instance_loss, membership)
 		#plot_sign_histogram(membership, counts, 100)
@@ -275,11 +295,10 @@ def generate_plots(result):
 			print('Our method 2')
 			ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
 			'''
-			#print('\n'+str(eps)+'\n')
-			#print('Yeom MI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a])))
-			#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2[a]), np.mean(adv_y_mi_2[a]), np.mean(ppv_y_mi_2[a])))
-			#print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.std(fpr_p_mi_1[a]+adv_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
-			#print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.std(fpr_p_mi_2[a]+adv_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
+			print('\n'+str(eps)+'\n')
+			print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1[a]), np.std(thresh_y_mi_1[a]), np.mean(fpr_y_mi_1[a]), np.std(fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.std(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.std(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a]), np.std(ppv_y_mi_1[a])))
+			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.std(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
+			print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.std(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
 			#print('\nYeom AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_1[a]), np.mean(adv_y_ai_1[a]), np.mean(ppv_y_ai_1[a])))
 			#print('Yeom AI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_ai_2[a]), np.mean(adv_y_ai_2[a]), np.mean(ppv_y_ai_2[a])))
 			#print('\nProposed AI 1:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_p_ai_1[a]), np.mean(adv_p_ai_1[a]), np.mean(ppv_p_ai_1[a])))

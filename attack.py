@@ -204,7 +204,7 @@ def save_data(args):
 
     # save target data
     print('Saving data for target model')
-    np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
+    np.savez(DATA_PATH + args.train_dataset + '_target_data.npz', train_x, train_y, test_x, test_y)
 
     # assert if remaining data is enough for sampling shadow data
     assert(len(x) >= (1 + gamma) * target_size)
@@ -215,13 +215,13 @@ def save_data(args):
         train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=gamma*target_size, stratify=y)
         print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
         print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-        np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
+        np.savez(DATA_PATH + args.train_dataset + '_shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
 
 
 def load_data(data_name, args):
     target_size = args.target_data_size
     gamma = args.target_test_train_ratio
-    with np.load(DATA_PATH + data_name) as f:
+    with np.load(DATA_PATH + args.train_dataset + '_' + data_name) as f:
         train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
 
     train_x = np.array(train_x, dtype=np.float32)
@@ -291,34 +291,38 @@ def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_ins
     noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
     v_counts = loss_increase_counts(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
     counts = loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params)
-    return (v_membership, v_per_instance_loss, v_counts, counts)
+    return (true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts)
 
 
-def evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_thresholds):
-    v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+def evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=None, per_class_thresh=False):
+    true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
     print('-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
-    print('-' * 5 + 'Inference Maximizing Advantage' + '-' * 5 + '\n')
-    thresh = get_inference_threshold(-v_per_instance_loss, v_membership)
-    pred_membership = np.where(per_instance_loss <= -thresh, 1, 0)
-    prety_print_result(membership, pred_membership)
-    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    for fpr_threshold in fpr_thresholds:
-        print('FPR = %.2f' % fpr_threshold)
+    if per_class_thresh:
+        classes = np.unique(true_y)
+        pred_membership = np.zeros(len(membership))
+        for c in classes:
+            c_indices = np.arange(len(true_y))[true_y == c]
+            v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+            thresh = get_inference_threshold(-v_per_instance_loss[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+            pred_membership[c_indices] = np.where(per_instance_loss[c_indices] <= -thresh, 1, 0)
+    else:
         thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
         pred_membership = np.where(per_instance_loss <= -thresh, 1, 0)
-        prety_print_result(membership, pred_membership)
+    prety_print_result(membership, pred_membership)
 
     print('-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
-    print('-' * 5 + 'Inference Maximizing Advantage' + '-' * 5 + '\n')
-    thresh = get_inference_threshold(v_counts, v_membership)
-    pred_membership = np.where(counts >= thresh, 1, 0)
-    prety_print_result(membership, pred_membership)
-    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    for fpr_threshold in fpr_thresholds:
-        print('FPR = %.2f' % fpr_threshold)
+    if per_class_thresh:
+        classes = np.unique(true_y)
+        pred_membership = np.zeros(len(membership))
+        for c in classes:
+            c_indices = np.arange(len(true_y))[true_y == c]
+            v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+            thresh = get_inference_threshold(v_counts[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+            pred_membership[c_indices] = np.where(counts[c_indices] >= thresh, 1, 0)
+    else:
         thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
         pred_membership = np.where(counts >= thresh, 1, 0)
-        prety_print_result(membership, pred_membership)
+    prety_print_result(membership, pred_membership)
 
 
 def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
@@ -423,40 +427,50 @@ def proposed_attribute_inference(true_x, true_y, classifier, membership, feature
     return (true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all)
 
 
-def evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_thresholds):
+def evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, per_class_thresh=False):
     print('-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
-    print('-' * 5 + 'Inference Maximizing Advantage' + '-' * 5 + '\n')
-    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=1)
-    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    for fpr_threshold in fpr_thresholds:
-        print('FPR = %.2f' % fpr_threshold)
-        evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=1)
+    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=1, per_class_thresh=per_class_thresh)
 
     print('-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
-    print('-' * 5 + 'Inference Maximizing Advantage' + '-' * 5 + '\n')
-    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=2)
-    print('-' * 5 + 'Inference for fixed False Positive Rate' + '-' * 5 + '\n')
-    for fpr_threshold in fpr_thresholds:
-        print('FPR = %.2f' % fpr_threshold)
-        evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=2)
+    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=2, per_class_thresh=per_class_thresh)
 
 
-def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=1):
-    v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=1, per_class_thresh=False):
+    true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
     true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
     for i in range(len(features)):
         high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
         low_prob = 1 - high_prob
         # Attack Method 1
         if attack_method == 1:
-            thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
-            low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
-            high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
+            if per_class_thresh:
+                classes = np.unique(true_y)
+                low_mem, high_mem = np.zeros(len(membership), dtype='int32'), np.zeros(len(membership), dtype='int32')
+                for c in classes:
+                    c_indices = np.arange(len(true_y))[true_y == c]
+                    v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+                    thresh = get_inference_threshold(-v_per_instance_loss[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+                    low_mem[c_indices] = np.where(np.array(low_per_instance_loss_all[i])[c_indices] <= -thresh, 1, 0)
+                    high_mem[c_indices] = np.where(np.array(high_per_instance_loss_all[i])[c_indices] <= -thresh, 1, 0)
+            else:
+                thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
+                low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
+                high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
         # Attack Method 2
         elif attack_method == 2:
-            thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
-            low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
-            high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
+            if per_class_thresh:
+                classes = np.unique(true_y)
+                low_mem, high_mem = np.zeros(len(membership), dtype='int32'), np.zeros(len(membership), dtype='int32')
+                for c in classes:
+                    c_indices = np.arange(len(true_y))[true_y == c]
+                    v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+                    thresh = get_inference_threshold(v_counts[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+                    low_mem[c_indices] = np.where(np.array(low_counts_all[i])[c_indices] >= thresh, 1, 0)
+                    high_mem[c_indices] = np.where(np.array(high_counts_all[i])[c_indices] >= thresh, 1, 0)
+            else:
+                thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
+                low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
+                high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
         pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
         mask = [a | b for a, b in zip(low_mem, high_mem)]
         pred_membership = mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
@@ -504,23 +518,24 @@ def run_experiment(args):
     # Yeom's attribute inference attack when both train_loss and test_loss are known - Adversary 7 of Yeom et al.
     yeom_ai_outputs_2 = yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss, test_loss)
 
-    fpr_thresholds = [0.01, 0.05, 0.1, 0.2, 0.3]
     # Proposed membership inference attacks
     proposed_mi_outputs = proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_instance_loss, args)
-    evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_thresholds)
+    evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01)
+    evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01, per_class_thresh=True)
 
     # Proposed attribute inference attacks
     proposed_ai_outputs = proposed_attribute_inference(true_x, true_y, classifier, membership, features, args)
-    evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_thresholds)
+    evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=0.01)
+    evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=0.01, per_class_thresh=True)
 
-    if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi'):
-        os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi')
+    if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi2'):
+        os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi2')
     
     #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-    if args.target_privacy == 'no_privacy':
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
-    else:
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+    #if args.target_privacy == 'no_privacy':
+    #    pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi2/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+    #else:
+    #    pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi2/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 
 if __name__ == '__main__':
