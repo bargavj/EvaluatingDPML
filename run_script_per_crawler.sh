@@ -40,6 +40,7 @@ fi
 
 echo "Beginning experiment"
 for GAMMA in 1 2 10
+	do
 	python $ATTACK_PY $DATASET --use_cpu=0 --target_test_train_ratio=$GAMMA --target_model='nn' --target_epochs=100 --target_learning_rate=0.005 --target_privacy='no_privacy' --run=$RUN
 	for EPSILON in 0.1 0.5 1.0 5.0 10.0 50.0 100.0 500.0 1000.0
 	do
