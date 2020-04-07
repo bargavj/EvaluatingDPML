@@ -11,7 +11,7 @@ import argparse
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 #EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
-EPSILONS = [100.0]
+EPSILONS = []
 PERTURBATION = 'grad_pert_'
 DP = ['gdp_']
 TYPE = ['o-', '.-']
@@ -398,38 +398,6 @@ def generate_plots(result):
 			plt.ylabel('$PPV_\mathcal{A}$')
 		plt.tight_layout()
 	plt.show()
-	
-
-
-def members_revealed_fixed_fpr(result):
-	thres = args.fpr_threshold# 0.01 == 1% FPR, 0.02 == 2% FPR, 0.05 == 5% FPR
-	_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
-	pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
-	#pred = attack_pred[:,1]
-	print(len(_members_revealed(membership, pred, thres)))
-	for dp in DP:
-		for eps in EPSILONS:
-			mems_revealed = []
-			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = result[dp][eps][run]
-				pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
-				#pred = attack_pred[:,1]
-				mems_revealed.append(_members_revealed(membership, pred, thres))
-			s = set.intersection(*mems_revealed)
-			print(dp, eps, len(s))
-
-
-def _members_revealed(membership, prediction, acceptable_fpr):
-	fpr, tpr, thresholds = roc_curve(membership, prediction, pos_label=1)
-	l = list(filter(lambda x: x < acceptable_fpr, fpr))
-	if len(l) == 0:
-		print("Error: low acceptable fpr")
-		return None
-	threshold = thresholds[len(l)-1]
-	preds = list(map(lambda val: 1 if val >= threshold else 0, prediction))
-	tp = [a*b for a,b in zip(preds,membership)]
-	revealed = list(map(lambda i: i if tp[i] == 1 else None, range(len(tp))))
-	return set(list(filter(lambda x: x != None, revealed)))
 
 
 def ppv_across_runs(mem, pred):
@@ -451,36 +419,6 @@ def ppv_across_runs(mem, pred):
 	tn, fp, fn, tp = confusion_matrix(mem, np.where(pred == 5, 1, 0)).ravel()
 	print("exactly 5")
 	print(tp, fp, tp / (tp + fp))
-
-
-def members_revealed_fixed_threshold(result):
-	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
-	print(attack_adv, mem_adv, np.mean(attr_adv))
-	pred = np.where(mem_pred > train_loss, 0, 1)
-	#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
-	#attr_pred = np.array(attr_pred)
-	#membership = np.array(attr_mem).ravel()
-	#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
-	tn, fp, fn, tp = confusion_matrix(membership, pred).ravel()
-	print(tp, tp / (tp + fp))
-	fpr, tpr, thresholds = roc_curve(membership, pred, pos_label=1)
-	print(fpr, tpr, np.max(tpr-fpr))
-	
-	for dp in DP:
-		for eps in EPSILONS:
-			ppv, preds = [], []
-			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = result[dp][eps][run]
-				pred = np.where(mem_pred > train_loss, 0, 1)
-				preds.append(pred)				
-				#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
-				#attr_pred = np.array(attr_pred)
-				#membership = np.array(attr_mem).ravel()
-				#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
-				ppv.append(get_ppv(membership, pred))
-			print(dp, eps, np.mean(ppv))
-			preds = np.sum(np.array(preds), axis=0)
-			ppv_across_runs(membership, preds)
 
 
 if __name__ == '__main__':
