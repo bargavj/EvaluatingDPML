@@ -1,8 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name="DiPrivML"
-#SBATCH --ntasks=100
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:1
 
 echo "Starting script"
 if [[ $# -eq 0 ]] ; then # if called with no arguments
