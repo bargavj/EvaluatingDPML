@@ -11,7 +11,7 @@ import argparse
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 #EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
-EPSILONS = []
+EPSILONS = [100.0]
 PERTURBATION = 'grad_pert_'
 DP = ['gdp_']
 TYPE = ['o-', '.-']
@@ -70,30 +70,56 @@ def pretty_position(X, Y, pos):
 	return ((X[pos] + X[pos+1]) / 2, (Y[pos] + Y[pos+1]) / 2)
 
 
-def get_pred_mem(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs=None, i=None, method=1, fpr_threshold=None):
-	v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-	if proposed_ai_outputs == None:
-		if method == 1:
+def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=None, per_class_thresh=False):
+	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+	if method == 1:
+		if per_class_thresh:
+			classes = np.unique(true_y)
+			pred_membership = np.zeros(len(v_membership))
+			threshs = []
+			for c in classes:
+				c_indices = np.arange(len(true_y))[true_y == c]
+				v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+				thresh = get_inference_threshold(-v_per_instance_loss[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+				pred_membership[c_indices] = np.where(per_instance_loss[c_indices] <= -thresh, 1, 0)
+				threshs.append(thresh)
+			return threshs[0], pred_membership
+		else:
 			thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
 			return thresh, np.where(per_instance_loss <= -thresh, 1, 0)
+	else:
+		if per_class_thresh:
+			classes = np.unique(true_y)
+			pred_membership = np.zeros(len(v_membership))
+			threshs = []
+			for c in classes:
+				c_indices = np.arange(len(true_y))[true_y == c]
+				v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
+				thresh = get_inference_threshold(v_counts[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+				pred_membership[c_indices] = np.where(counts[c_indices] >= thresh, 1, 0)
+				threshs.append(thresh)
+			return threshs[0], pred_membership
 		else:
 			thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
 			return thresh, np.where(counts >= thresh, 1, 0)
+
+
+def get_pred_mem_ai(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=None):
+	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+	true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
+	high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
+	low_prob = 1 - high_prob
+	if method == 1:
+		thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
+		low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
+		high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
 	else:
-		true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
-		high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
-		low_prob = 1 - high_prob
-		if method == 1:
-			thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
-			low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
-			high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
-		else:
-			thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
-			low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
-			high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
-		pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
-		mask = [a | b for a, b in zip(low_mem, high_mem)]
-		return thresh, mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
+		thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
+		low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
+		high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
+	pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
+	mask = [a | b for a, b in zip(low_mem, high_mem)]
+	return thresh, mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
 
 
 def plot_distributions(pred_vector, true_vector, method=1):
@@ -114,7 +140,7 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	if method == 1:
 		ax1.set_xscale('log')
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-5,10), ha='right')
-		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-10,10), ha='left')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-20,20), ha='left')
 		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-20,-10), ha='right')
 	else:
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-20,0), ha='right')
@@ -154,20 +180,20 @@ def generate_plots(result):
 	fpr_y_mi_1, fpr_y_mi_2, fpr_y_ai_1, fpr_y_ai_2, fpr_p_mi_1, fpr_p_mi_2, fpr_p_ai_1, fpr_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	thresh_y_mi_1, thresh_y_mi_2, thresh_y_ai_1, thresh_y_ai_2, thresh_p_mi_1, thresh_p_mi_2, thresh_p_ai_1, thresh_p_ai_2 = np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B), np.zeros(B), np.zeros(B), np.zeros(5*B), np.zeros(5*B)
 	#pred1, pred2, pred3, pred4 = [], [], [], []
+	mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
 	for run in RUNS:
 		aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
-		v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 		m, nm = 0, 0
-		print("\nMI 1")
 		for i, val in enumerate(per_instance_loss):
 			if val == 0:
 				if membership[i] == 1:
 					m += 1
 				else:
 					nm += 1
-		print(m,nm)
-		print("\nMI 2")
+		mi_1_zero_m.append(m)
+		mi_1_zero_nm.append(nm)
 		m, nm = 0, 0
 		for i, val in enumerate(counts):
 			if val == 0:
@@ -175,9 +201,10 @@ def generate_plots(result):
 					m += 1
 				else:
 					nm += 1
-		print(m,nm)
-		print(np.mean(counts[:10000]), np.std(counts[:10000]))
-		print(np.mean(counts[10000:]), np.std(counts[10000:]))
+		mi_2_zero_m.append(m)
+		mi_2_zero_nm.append(nm)
+		#print(np.mean(counts[:10000]), np.std(counts[:10000]))
+		#print(np.mean(counts[10000:]), np.std(counts[10000:]))
 		#plot_histogram(per_instance_loss)
 		#plot_distributions(per_instance_loss, membership)
 		#plot_sign_histogram(membership, counts, 100)
@@ -187,10 +214,10 @@ def generate_plots(result):
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc
 		
-		thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha)
+		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh)
 		fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 		thresh_p_mi_1[run], fpr_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = thresh, fp / (gamma * 10000), adv, ppv
-		thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha)
+		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh)
 		fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 		thresh_p_mi_2[run], fpr_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = thresh, fp / (gamma * 10000), adv, ppv
 		fp, adv, ppv = get_fp_adv_ppv(membership, yeom_mi_outputs_1)
@@ -214,6 +241,8 @@ def generate_plots(result):
 		#pred4.append(get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha))
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
+	print('\nMI 1: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_1_zero_m), np.std(mi_1_zero_m), np.mean(mi_1_zero_nm), np.std(mi_1_zero_nm)))
+	print('\nMI 2: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_2_zero_m), np.std(mi_2_zero_m), np.mean(mi_2_zero_nm), np.std(mi_2_zero_nm)))
 	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1+fpr_y_mi_1), np.std(adv_y_mi_1+fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
 	#print('Yeom MI 2:\n TP: %d, Adv: %f, PPV: %f' % (np.mean(tp_y_mi_2), np.mean(adv_y_mi_2), np.mean(ppv_y_mi_2)))
 	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
@@ -245,13 +274,34 @@ def generate_plots(result):
 		ppv_y_mi_1, ppv_y_mi_2, ppv_y_ai_1, ppv_y_ai_2, ppv_p_mi_1, ppv_p_mi_2, ppv_p_ai_1, ppv_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
 		fpr_y_mi_1, fpr_y_mi_2, fpr_y_ai_1, fpr_y_ai_2, fpr_p_mi_1, fpr_p_mi_2, fpr_p_ai_1, fpr_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
 		thresh_y_mi_1, thresh_y_mi_2, thresh_y_ai_1, thresh_y_ai_2, thresh_p_mi_1, thresh_p_mi_2, thresh_p_ai_1, thresh_p_ai_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, 5*B)), np.zeros((A, 5*B))
+		mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
 		for a, eps in enumerate(EPSILONS):
 			#pred1, pred2, pred3, pred4 = [], [], [], []
 			for run in RUNS:
 				aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
-				v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+				true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				test_acc_vec[a, run] = test_acc
+				m, nm = 0, 0
+				for i, val in enumerate(per_instance_loss):
+					if val == 0:
+						if membership[i] == 1:
+							m += 1
+						else:
+							nm += 1
+				mi_1_zero_m.append(m)
+				mi_1_zero_nm.append(nm)
+				m, nm = 0, 0
+				for i, val in enumerate(counts):
+					if val == 0:
+						if membership[i] == 1:
+							m += 1
+						else:
+							nm += 1
+				mi_2_zero_m.append(m)
+				mi_2_zero_nm.append(nm)
+				#print(np.mean(counts[:10000]), np.std(counts[:10000]))
+				#print(np.mean(counts[10000:]), np.std(counts[10000:]))
 				#print(eps, run)
 				#plot_histogram(per_instance_loss)
 				#plot_distributions(per_instance_loss, membership)
@@ -259,10 +309,10 @@ def generate_plots(result):
 				#plot_distributions(counts, membership, 2)
 				#analyse_most_vulnerable(per_instance_loss, membership, top_k=5)
 				#analyse_most_vulnerable(counts, membership, top_k=5, reverse=True)
-				thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha)
+				thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh)
 				fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 				thresh_p_mi_1[a, run], fpr_p_mi_1[a, run], adv_p_mi_1[a, run], ppv_p_mi_1[a, run] = thresh, fp / (gamma * 10000), adv, ppv
-				thresh, pred = get_pred_mem(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha)
+				thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh)
 				fp, adv, ppv = get_fp_adv_ppv(membership, pred)
 				thresh_p_mi_2[a, run], fpr_p_mi_2[a, run], adv_p_mi_2[a, run], ppv_p_mi_2[a, run] = thresh, fp / (gamma * 10000), adv, ppv
 				fp, adv, ppv = get_fp_adv_ppv(membership, yeom_mi_outputs_1)
@@ -296,6 +346,8 @@ def generate_plots(result):
 			ppv_across_runs(membership, np.sum(np.array(pred4), axis=0))
 			'''
 			print('\n'+str(eps)+'\n')
+			print('\nMI 1: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_1_zero_m), np.std(mi_1_zero_m), np.mean(mi_1_zero_nm), np.std(mi_1_zero_nm)))
+			print('\nMI 2: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_2_zero_m), np.std(mi_2_zero_m), np.mean(mi_2_zero_nm), np.std(mi_2_zero_nm)))
 			print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1[a]), np.std(thresh_y_mi_1[a]), np.mean(fpr_y_mi_1[a]), np.std(fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.std(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.std(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a]), np.std(ppv_y_mi_1[a])))
 			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.std(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
 			print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.std(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
@@ -428,23 +480,16 @@ if __name__ == '__main__':
 	parser.add_argument('--l2_ratio', type=str, default='1e-08')
 	parser.add_argument('--gamma', type=int, default=1)
 	parser.add_argument('--alpha', type=float, default=None)
-	parser.add_argument('--function', type=int, default=1)
+	parser.add_argument('--per_class_thresh', type=int, default=0)
 	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--metric', type=str, default='adv')
-	parser.add_argument('--fpr_threshold', type=float, default=0.01)
-	parser.add_argument('--silent', type=int, default=1)
 	args = parser.parse_args()
 	print(vars(args))
 
 	gamma = args.gamma
 	alpha = args.alpha
-	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi/'
+	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi2/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
-	if args.function == 1:
-		generate_plots(result) # plot the utility and privacy loss graphs
-	elif args.function == 2:
-		members_revealed_fixed_fpr(result) # return the number of members revealed for different FPR rates
-	else:
-		members_revealed_fixed_threshold(result)
+	generate_plots(result)
