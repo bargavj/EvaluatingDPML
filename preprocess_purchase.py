@@ -6,11 +6,9 @@ from sklearn.cluster import KMeans
 
 IT_NUM = 100
 
-
 def normalizeDataset(X):
     mods = np.linalg.norm(X, axis=1)
     return X / mods[:, np.newaxis]
-
 
 def populate1():    
     cnt = 0
@@ -53,7 +51,6 @@ def populate1():
 
     print(len(customer))
     pickle.dump([customer, freq_items_dict], open('transactions_dump.p', 'wb'))
-
 
 def populate():    
     fp = open('transactions.csv')
@@ -106,6 +103,7 @@ def make_dataset():
     pickle.dump(X.labels_, open('purchase_100_labels.p', 'wb'))
     print(np.unique(X.labels_))
 
+# Note: transactions.csv file can be downloaded from https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data
 #populate1() # 100 'most' frequent items
 populate() # first 100 frequent items -- generates the data set used in the experiments
 make_dataset()

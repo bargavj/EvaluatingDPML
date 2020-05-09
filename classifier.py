@@ -2,6 +2,7 @@ from sklearn.metrics import classification_report, accuracy_score
 from tensorflow_privacy.privacy.analysis.rdp_accountant import compute_rdp
 from tensorflow_privacy.privacy.analysis.rdp_accountant import get_privacy_spent
 from tensorflow_privacy.privacy.optimizers import dp_optimizer
+from constants import rdp_noise_multiplier, gdp_noise_multiplier
 import tensorflow as tf
 import numpy as np
 import os
@@ -10,15 +11,6 @@ LOGGING = False # enables tf.train.ProfilerHook (see use below)
 LOG_DIR = 'log'
 
 AdamOptimizer = tf.compat.v1.train.AdamOptimizer
-
-# optimal sigma values for RDP mechanism for the batch size = 200, epochs = 100, training set size = 10000, delta = 1e-5.
-#noise_multiplier = {0.01:525, 0.05:150, 0.1:70, 0.5:13.8, 1:7, 5:1.669, 10:1.056, 50:0.551, 100:0.445, 500:0.275, 1000:0.219}
-# optimal sigma values for GDP mechanism for the batch size = 200, epochs = 100, training set size = 10000, delta = 1e-5.
-#gdp_noise_multiplier = {0.01:350, 0.05:82, 0.1:44, 0.5:10, 1:5.4, 5:1.43, 10:0.955, 50:0.564, 100:0.498}
-# optimal sigma values for RDP mechanism for the batch size = 200, epochs = 30, training set size = 10000, delta = 1e-5.
-noise_multiplier = {0.01: 290, 0.05:70, 0.1:36, 0.5:7.6, 1:3.9, 5:1.1, 10:0.79, 50:0.445, 100:0.356, 500:0.206, 1000:0.157}
-# optimal sigma values for GDP mechanism for the batch size = 200, epochs = 30, training set size = 10000, delta = 1e-5.
-gdp_noise_multiplier = {0.01:190, 0.05:45, 0.1:24, 0.5:5.5, 1:3, 5:0.94, 10:0.701, 50:0.481, 100:0.438}
 
 def get_predictions(predictions):
     pred_y, pred_scores = [], []
@@ -31,7 +23,7 @@ def get_predictions(predictions):
 
 
 def get_model(features, labels, mode, params):
-    n, n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, l2_ratio, epochs = params
+    n, n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, clipping_threshold, l2_ratio, epochs = params
     if model == 'nn':
         #print('Using neural network...')
         input_layer = tf.reshape(features['x'], [-1, n_in])
@@ -58,22 +50,19 @@ def get_model(features, labels, mode, params):
     if mode == tf.estimator.ModeKeys.TRAIN:
         
         if privacy == 'grad_pert':
-            C = 4 # Clipping Threshold - def : 1
-            sigma = 0.
             if dp == 'adv_cmp':
                 sigma = np.sqrt(epochs * np.log(2.5 * epochs / delta)) * (np.sqrt(np.log(2 / delta) + 2 * epsilon) + np.sqrt(np.log(2 / delta))) / epsilon
             elif dp == 'zcdp':
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon
             elif dp == 'rdp':
-                sigma = noise_multiplier[epsilon]
+                sigma = rdp_noise_multiplier[epochs][epsilon]
             elif dp == 'gdp':
-                sigma = gdp_noise_multiplier[epsilon]
-            elif dp == 'dp':
+                sigma = gdp_noise_multiplier[epochs][epsilon]
+            else: # if dp == 'dp'
                 sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon
-            print(sigma)
     
             optimizer = dp_optimizer.DPAdamGaussianOptimizer(
-                            l2_norm_clip=C,
+                            l2_norm_clip=clipping_threshold,
                             noise_multiplier=sigma,
                             num_microbatches=batch_size,
                             learning_rate=learning_rate,
@@ -101,8 +90,7 @@ def get_model(features, labels, mode, params):
                                           eval_metric_ops=eval_metric_ops)
 
 
-def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, model='nn', l2_ratio=1e-7,
-        silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
+def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, clipping_threshold=1, model='nn', l2_ratio=1e-7, silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
     train_x, train_y, test_x, test_y = dataset
 
     n_in = train_x.shape[1]
@@ -126,6 +114,7 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
                 delta,
                 batch_size,
                 learning_rate,
+                clipping_threshold,
                 l2_ratio,
                 epochs
             ])
@@ -148,10 +137,6 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
         shuffle=False)
 
     steps_per_epoch = train_x.shape[0] // batch_size
-    orders = [1 + x / 100.0 for x in range(1, 1000)] + list(range(12, 1200))
-    rdp = compute_rdp(batch_size / train_x.shape[0], noise_multiplier[epsilon], epochs * steps_per_epoch, orders)
-    eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
-    print('\nFor delta= %.5f' % delta, ',the epsilon is: %.2f\n' % eps)
 
     if not os.path.exists(LOG_DIR):
        os.makedirs(LOG_DIR)
@@ -184,7 +169,8 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
         test_acc = eval_results['accuracy']
         print('Test accuracy is: %.3f' % (test_acc))
 
-        # warning: silent flag is only used for target model training, as it also returns auxiliary information
+        # warning: silent flag is only used for target model training, 
+        # as it also returns auxiliary information
         return classifier, (train_loss, train_acc, test_loss, test_acc)
 
     return classifier

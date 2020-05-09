@@ -1,10 +1,8 @@
 from sklearn.metrics import confusion_matrix, roc_curve
+from constants import SMALL_VALUE, SEED
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-
-# to avoid numerical inconsistency in calculating log
-SMALL_VALUE = 1e-6
 
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
@@ -20,11 +18,13 @@ def get_ppv(mem, pred):
     	return 0
     return tp / (tp + fp)
 
-def get_fp_adv_ppv(mem, pred):
+def get_adv(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
-    if tp == fp == 0:
-    	return 0, 0, 0
-    return fp, (tp / (tp + fn)) - (fp / (tn + fp)), tp / (tp + fp)
+    return (tp / (tp + fn)) - (fp / (tn + fp))
+
+def get_fp(mem, pred):
+    tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
+    return fp
 
 def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
     fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
@@ -40,13 +40,12 @@ def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
 
 def loss_range():
 	return [10**i for i in np.arange(-7, 1, 0.1)]
-	#return list(np.arange(0, -np.log(SMALL_VALUE), 0.0001))
 
 def log_loss(a, b):
 	return [-np.log(max(b[i,a[i]], SMALL_VALUE)) for i in range(len(a))]
 
 def get_random_features(data, pool, size):
-    random.seed(21312)
+    random.seed(SEED)
     features = set()
     while(len(features) < size):
         feat = random.choice(pool)
@@ -103,9 +102,6 @@ def plot_sign_histogram(membership, signs, trials):
 def plot_histogram(vector):
     mem = vector[:10000]
     non_mem = vector[10000:]
-    #true_vector = np.concatenate((np.ones(10000, dtype='int32'), np.zeros(len(vector) - 10000, dtype='int32')))
-    #fpr, tpr, phi = roc_curve(true_vector, vector, pos_label=1)
-    #data, bins, _ = plt.hist([mem, non_mem], bins=list(reversed(phi)))
     data, bins, _ = plt.hist([mem, non_mem], bins=loss_range())
     plt.clf()
     mem_hist = np.array(data[0])
@@ -113,7 +109,6 @@ def plot_histogram(vector):
     plt.plot(bins[:-1], mem_hist / len(mem), 'k-', label='Members')
     plt.plot(bins[:-1], non_mem_hist / len(non_mem), 'k--', label='Non Members')
     plt.xscale('log')
-    #plt.yscale('log')
     plt.xticks([10**-6, 10**-4, 10**-2, 10**0])
     plt.yticks(np.arange(0, 0.11, step=0.02))
     plt.ylim(0, 0.1)

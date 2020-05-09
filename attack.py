@@ -1,7 +1,7 @@
 from classifier import train as train_model, get_predictions
 from utilities import log_loss, prety_print_result, get_inference_threshold, generate_noise, get_random_features, get_attribute_variations
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve
+from sklearn.metrics import roc_curve
 from scipy import stats
 import numpy as np
 import tensorflow as tf
@@ -9,18 +9,14 @@ import argparse
 import os
 import pickle
 
-MODEL_PATH = './model/'
-DATA_PATH = './data/'
-RESULT_PATH = './results/'
+MODEL_PATH = 'model/'
+DATA_PATH = 'data/'
 
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
-
-if not os.path.exists(RESULT_PATH):
-    os.makedirs(RESULT_PATH)
 
 
 def load_attack_data():
@@ -33,14 +29,12 @@ def load_attack_data():
     return train_x.astype('float32'), train_y.astype('int32'), test_x.astype('float32'), test_y.astype('int32')
 
 
-def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0.01, l2_ratio=1e-7,
-                       n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
     if dataset == None:
         dataset = load_data('target_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
 
-    classifier, aux = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
-                               batch_size=batch_size, model=model, l2_ratio=l2_ratio, silent=False, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
+    classifier, aux = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, clipping_threshold=clipping_threshold, batch_size=batch_size, model=model, l2_ratio=l2_ratio, silent=False, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
     # test data for attack model
     attack_x, attack_y = [], []
 
@@ -80,8 +74,7 @@ def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0
     return attack_x, attack_y, classes, classifier, aux
 
 
-def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7,
-                        model='nn', save=True):
+def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', save=True):
     attack_x, attack_y = [], []
     classes = []
     for i in range(n_shadow):
@@ -90,8 +83,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
         train_x, train_y, test_x, test_y = dataset
 
         # train model
-        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
-                                   batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
         #print('Gather training data for attack model')
         attack_i_x, attack_i_y = [], []
 
@@ -135,8 +127,7 @@ def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05
     return attack_x, attack_y, classes
 
 
-def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, batch_size=200, epochs=50,
-                       model='nn', l2_ratio=1e-7):
+def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, batch_size=200, epochs=50, model='nn', l2_ratio=1e-7):
     if dataset is None:
         dataset = load_attack_data()
     train_x, train_y, test_x, test_y = dataset
@@ -157,14 +148,13 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         c_test_indices = test_indices[test_classes == c]
         c_test_x, c_test_y = test_x[c_test_indices], test_y[c_test_indices]
         c_dataset = (c_train_x, c_train_y, c_test_x, c_test_y)
-        classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate,
-                               batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
         pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': c_test_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
-        c_pred_y, c_pred_scores =  get_predictions(predictions)
+        c_pred_y, c_pred_scores = get_predictions(predictions)
         true_y.append(c_test_y)
         pred_y.append(c_pred_y)
         true_x.append(c_test_x)
@@ -175,8 +165,6 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     pred_y = np.concatenate(pred_y)
     true_x = np.concatenate(true_x)
     pred_scores = np.concatenate(pred_scores)
-    #print('Testing Accuracy: {}'.format(accuracy_score(true_y, pred_y)))
-    #print(classification_report(true_y, pred_y))
     prety_print_result(true_y, pred_y)
     fpr, tpr, thresholds = roc_curve(true_y, pred_y, pos_label=1)
     attack_adv = tpr[1] - fpr[1]
@@ -204,7 +192,7 @@ def save_data(args):
 
     # save target data
     print('Saving data for target model')
-    np.savez(DATA_PATH + args.train_dataset + '_target_data.npz', train_x, train_y, test_x, test_y)
+    np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
 
     # assert if remaining data is enough for sampling shadow data
     assert(len(x) >= (1 + gamma) * target_size)
@@ -215,13 +203,13 @@ def save_data(args):
         train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=gamma*target_size, stratify=y)
         print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
         print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-        np.savez(DATA_PATH + args.train_dataset + '_shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
+        np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
 
 
 def load_data(data_name, args):
     target_size = args.target_data_size
     gamma = args.target_test_train_ratio
-    with np.load(DATA_PATH + args.train_dataset + '_' + data_name) as f:
+    with np.load(DATA_PATH + data_name) as f:
         train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
 
     train_x = np.array(train_x, dtype=np.float32)
@@ -279,6 +267,7 @@ def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_ins
         epochs=args.target_epochs,
         batch_size=args.target_batch_size,
         learning_rate=args.target_learning_rate,
+        clipping_threshold=args.target_clipping_threshold,
         n_hidden=args.target_n_hidden,
         l2_ratio=args.target_l2_ratio,
         model=args.target_model,
@@ -475,111 +464,3 @@ def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_output
         mask = [a | b for a, b in zip(low_mem, high_mem)]
         pred_membership = mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
         prety_print_result(membership, pred_membership)
-
-
-def run_experiment(args):
-    print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
-    dataset = load_data('target_data.npz', args)
-    v_dataset = load_data('shadow0_data.npz', args)
-    train_x, train_y, test_x, test_y = dataset
-    true_x = np.vstack((train_x, test_x))
-    true_y = np.append(train_y, test_y)
-    batch_size = args.target_batch_size
-
-    pred_y, membership, test_classes, classifier, aux = train_target_model(
-        dataset=dataset,
-        epochs=args.target_epochs,
-        batch_size=args.target_batch_size,
-        learning_rate=args.target_learning_rate,
-        n_hidden=args.target_n_hidden,
-        l2_ratio=args.target_l2_ratio,
-        model=args.target_model,
-        privacy=args.target_privacy,
-        dp=args.target_dp,
-        epsilon=args.target_epsilon,
-        delta=args.target_delta,
-        save=args.save_model)
-    train_loss, train_acc, test_loss, test_acc = aux
-    per_instance_loss = np.array(log_loss(true_y, pred_y))
-   
-    features = get_random_features(true_x, range(true_x.shape[1]), 5)
-    print(features)
-
-    # Yeom's membership inference attack when only train_loss is known 
-    yeom_mi_outputs_1 = yeom_membership_inference(per_instance_loss, membership, train_loss)
-    # Yeom's membership inference attack when both train_loss and test_loss are known - Adversary 2 of Yeom et al.
-    yeom_mi_outputs_2 = yeom_membership_inference(per_instance_loss, membership, train_loss, test_loss)
-
-    # Shokri's membership inference attack based on shadow model training
-    #shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
-
-    # Yeom's attribute inference attack when train_loss is known - Adversary 4 of Yeom et al.
-    yeom_ai_outputs_1 = yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss)
-    # Yeom's attribute inference attack when both train_loss and test_loss are known - Adversary 7 of Yeom et al.
-    yeom_ai_outputs_2 = yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss, test_loss)
-
-    # Proposed membership inference attacks
-    proposed_mi_outputs = proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_instance_loss, args)
-    evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01)
-    evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01, per_class_thresh=True)
-
-    # Proposed attribute inference attacks
-    proposed_ai_outputs = proposed_attribute_inference(true_x, true_y, classifier, membership, features, args)
-    evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=0.01)
-    evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=0.01, per_class_thresh=True)
-
-    if not os.path.exists(RESULT_PATH+args.train_dataset+'_improved_mi2'):
-        os.makedirs(RESULT_PATH+args.train_dataset+'_improved_mi2')
-    
-    #pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, yeom_attr_mem, yeom_attr_pred, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-    if args.target_privacy == 'no_privacy':
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi2/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
-    else:
-        pickle.dump([aux, membership, per_instance_loss, features, yeom_mi_outputs_1, yeom_mi_outputs_2, yeom_ai_outputs_1, yeom_ai_outputs_2, proposed_mi_outputs, proposed_ai_outputs], open(RESULT_PATH+args.train_dataset+'_improved_mi2/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('train_dataset', type=str)
-    parser.add_argument('--run', type=int, default=1)
-    parser.add_argument('--use_cpu', type=int, default=0)
-    parser.add_argument('--save_model', type=int, default=0)
-    parser.add_argument('--save_data', type=int, default=0)
-    # target and shadow model configuration
-    parser.add_argument('--n_shadow', type=int, default=5)
-    parser.add_argument('--target_data_size', type=int, default=int(1e4))
-    parser.add_argument('--target_test_train_ratio', type=int, default=1)
-    parser.add_argument('--target_model', type=str, default='nn')
-    parser.add_argument('--target_learning_rate', type=float, default=0.01)
-    parser.add_argument('--target_batch_size', type=int, default=200)
-    parser.add_argument('--target_n_hidden', type=int, default=256)
-    parser.add_argument('--target_epochs', type=int, default=100)
-    parser.add_argument('--target_l2_ratio', type=float, default=1e-8)
-    parser.add_argument('--target_privacy', type=str, default='no_privacy')
-    parser.add_argument('--target_dp', type=str, default='dp')
-    parser.add_argument('--target_epsilon', type=float, default=0.5)
-    parser.add_argument('--target_delta', type=float, default=1e-5)
-    # attack model configuration
-    parser.add_argument('--attack_model', type=str, default='nn')
-    parser.add_argument('--attack_learning_rate', type=float, default=0.01)
-    parser.add_argument('--attack_batch_size', type=int, default=100)
-    parser.add_argument('--attack_n_hidden', type=int, default=64)
-    parser.add_argument('--attack_epochs', type=int, default=100)
-    parser.add_argument('--attack_l2_ratio', type=float, default=1e-6)
-    # proposed attack's noise parameters
-    parser.add_argument('--attack_noise_type', type=str, default='gaussian')
-    parser.add_argument('--attack_noise_coverage', type=str, default='full')
-    parser.add_argument('--attack_noise_magnitude', type=float, default=0.01)
-
-    # parse configuration
-    args = parser.parse_args()
-    print(vars(args))
-    
-    # Flag to disable GPU
-    if args.use_cpu:
-    	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-    if args.save_data:
-        save_data(args)
-    else:
-        run_experiment(args)
