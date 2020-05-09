@@ -20,9 +20,9 @@ For pre-processing other data sets, bound the L2 norm of each record to 1 and pi
 
 ### Training the Non-Private Baseline Models for CIFAR
 
-When you are running the code on a data set for the first time, run `python attack.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
+When you are running the code on a data set for the first time, run `python evaluating_dpml.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
-Run `python attack.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
+Run `python evaluating_dpml.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
 
 For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$dataset`='cifar_100', `$model`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
 
@@ -31,14 +31,14 @@ For training optimal non-private baseline neural network on Purchase-100 data se
 
 ### Training the Differential Private Models
 
-Run `python attack.py $dataset --target_model=$model --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of attack.py for other command-line arguments.
+Run `python evaluating_dpml.py $dataset --target_model=$model --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of attack.py for other command-line arguments.
 
 
 ### Simulating the Experiments from the Paper 
 
-Update the `$dataset`, `$model` and `$lambda` variables accordingly and run `./run_experiment.sh` on terminal. Results will be stored in `results/$dataset` folder.
+Update the `$dataset`, `$model` and `$lambda` variables accordingly and run `./evaluating_dpml_run.sh` on terminal. Results will be stored in `results/$dataset` folder.
 
-Run `interpret_results.py $dataset --model=$model --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--function` prints the plots if set to 1 (default), or gives the membership revelation results if set to 2.
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
