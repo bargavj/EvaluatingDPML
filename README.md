@@ -52,3 +52,13 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
 ## Revisiting Membership Inference under Realistic Assumptions
 
 To replicate the results of the paper *Revisiting Membership Inference under Realistic Assumptions*, use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
+
+Run `improved_mi_interpret_results.py $dataset --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+- `--plot` specifies the type of plot to be printed
+    - 'acc' prints the accuracy loss comparison plot (default)
+    - 'priv' prints the privacy leakage plots and table values
+- `--gamma` specifies the gamma value to be used for the results: 1, 2 or 10
+- `--alpha` specifies the alpha threshold to be used to get the corresponding attack threshold: between 0 and 1
+- `--per_class_thresh` specifies whether to use per class threshold (1) or not (0 - default)
+- `--fixed_thresh` specfies if fixed threshold of expected training loss is to be used when using per class threshold: set to 1 for using fixed threshold (0 - default)
+- `--eps` specifies the epsilon value to be used when plotting 'priv' plots (None - default, i.e. no privacy)
