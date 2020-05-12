@@ -5,7 +5,6 @@ import numpy as np
 import pickle
 import argparse
 
-
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
