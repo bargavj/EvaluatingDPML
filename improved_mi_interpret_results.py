@@ -148,6 +148,18 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	plt.show()
 
 
+def get_zeros(mem, vect):
+	m, nm = 0, 0
+	for i, val in enumerate(vect):
+		if val == 0:
+			if mem[i] == 1:
+				m += 1
+			else:
+				nm += 1
+	#print(np.mean(vect[:10000]), np.std(vect[:10000]))
+	#print(np.mean(vect[10000:]), np.std(vect[10000:]))
+	return m, nm
+	
 def generate_plots(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	adv_y_mi_1, adv_y_mi_2, adv_p_mi_1, adv_p_mi_2 = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
@@ -159,26 +171,13 @@ def generate_plots(result):
 		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-		m, nm = 0, 0
-		for i, val in enumerate(per_instance_loss):
-			if val == 0:
-				if membership[i] == 1:
-					m += 1
-				else:
-					nm += 1
+		
+		m, nm = get_zeros(membership, per_instance_loss)
 		mi_1_zero_m.append(m)
 		mi_1_zero_nm.append(nm)
-		m, nm = 0, 0
-		for i, val in enumerate(counts):
-			if val == 0:
-				if membership[i] == 1:
-					m += 1
-				else:
-					nm += 1
+		m, nm = get_zeros(membership, counts)
 		mi_2_zero_m.append(m)
 		mi_2_zero_nm.append(nm)
-		#print(np.mean(counts[:10000]), np.std(counts[:10000]))
-		#print(np.mean(counts[10000:]), np.std(counts[10000:]))
 		#plot_histogram(per_instance_loss)
 		#plot_distributions(per_instance_loss, membership)
 		#plot_sign_histogram(membership, counts, 100)
@@ -211,33 +210,19 @@ def generate_plots(result):
 		ppv_y_mi_1, ppv_y_mi_2, ppv_p_mi_1, ppv_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
 		fpr_y_mi_1, fpr_y_mi_2, fpr_p_mi_1, fpr_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
 		thresh_y_mi_1, thresh_y_mi_2, thresh_p_mi_1, thresh_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
-		mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
 		for a, eps in enumerate(EPSILONS):
+			mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
 			for run in RUNS:
 				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
 				true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 				test_acc_vec[a, run] = test_acc
-				m, nm = 0, 0
-				for i, val in enumerate(per_instance_loss):
-					if val == 0:
-						if membership[i] == 1:
-							m += 1
-						else:
-							nm += 1
+				m, nm = get_zeros(membership, per_instance_loss)
 				mi_1_zero_m.append(m)
 				mi_1_zero_nm.append(nm)
-				m, nm = 0, 0
-				for i, val in enumerate(counts):
-					if val == 0:
-						if membership[i] == 1:
-							m += 1
-						else:
-							nm += 1
+				m, nm = get_zeros(membership, counts)
 				mi_2_zero_m.append(m)
 				mi_2_zero_nm.append(nm)
-				#print(np.mean(counts[:10000]), np.std(counts[:10000]))
-				#print(np.mean(counts[10000:]), np.std(counts[10000:]))
 				#print(eps, run)
 				#plot_histogram(per_instance_loss)
 				#plot_distributions(per_instance_loss, membership)
