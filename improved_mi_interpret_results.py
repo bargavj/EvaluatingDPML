@@ -30,22 +30,17 @@ plt.rcParams.update(new_rc_params)
 def f(eps, delta, alpha):
 	return max(0, 1 - delta - np.exp(eps) * alpha, np.exp(-eps) * (1 - delta - alpha))
 
-
 def adv_lim(eps, delta, alpha):
 	return 1 - f(eps, delta, alpha) - alpha
-
 
 def ppv_lim(eps, delta, alpha):
 	return (1 - f(eps, delta, alpha)) / (1 - f(eps, delta, alpha) + gamma * alpha)
 
-
 def improved_limit(epsilons):
 	return [max([adv_lim(eps, delta, alpha) for alpha in ALPHAS]) for eps in epsilons]
 
-
 def yeoms_limit(epsilons):
 	return [np.exp(eps) - 1 for eps in epsilons]
-
 
 def get_data():
 	result = {}
@@ -63,10 +58,8 @@ def get_data():
 	result['no_privacy'] = runs
 	return result
 
-
 def pretty_position(X, Y, pos):
 	return ((X[pos] + X[pos+1]) / 2, (Y[pos] + Y[pos+1]) / 2)
-
 
 def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=None, per_class_thresh=False, fixed_thresh=False):
 	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
@@ -113,7 +106,6 @@ def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_thresh
 			thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
 			return thresh, np.where(counts >= thresh, 1, 0)
 
-
 def plot_distributions(pred_vector, true_vector, method=1):
 	fpr, tpr, phi = roc_curve(true_vector, pred_vector, pos_label=1)
 	fpr, tpr, phi = np.array(fpr), np.array(tpr), np.array(phi)
@@ -147,7 +139,6 @@ def plot_distributions(pred_vector, true_vector, method=1):
 	fig.tight_layout()
 	plt.show()
 
-
 def get_zeros(mem, vect):
 	m, nm = 0, 0
 	for i, val in enumerate(vect):
@@ -159,32 +150,58 @@ def get_zeros(mem, vect):
 	#print(np.mean(vect[:10000]), np.std(vect[:10000]))
 	#print(np.mean(vect[10000:]), np.std(vect[10000:]))
 	return m, nm
-	
-def generate_plots(result):
+
+def plot_accuracy(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
+	for run in RUNS:
+		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run]
+		train_loss, train_acc, test_loss, test_acc = aux
+		baseline_acc[run] = test_acc
+		train_accs[run] = train_acc				
+	baseline_acc = np.mean(baseline_acc)
+	print(np.mean(train_accs), baseline_acc)
+    	color = 0.1
+	y = dict()
+	for dp in DP:
+		test_acc_vec = np.zeros((A, B))
+		for a, eps in enumerate(EPSILONS):
+			mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
+			for run in RUNS:
+				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result[dp][eps][run]
+				train_loss, train_acc, test_loss, test_acc = aux
+				test_acc_vec[a, run] = test_acc			
+		y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
+		plt.errorbar(EPSILONS, y[dp], yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+		color += 0.2
+	plt.xscale('log')
+	plt.xlabel('Privacy Budget ($\epsilon$)')	
+	plt.ylabel('Accuracy Loss')
+	plt.yticks(np.arange(0, 1.1, step=0.2))
+	plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 2), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
+	plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 2), textcoords="offset points", xytext=(-20, -10), ha='right', color=str(0.1))
+	plt.tight_layout()
+	plt.show()
+
+def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	adv_y_mi_1, adv_y_mi_2, adv_p_mi_1, adv_p_mi_2 = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
 	ppv_y_mi_1, ppv_y_mi_2, ppv_p_mi_1, ppv_p_mi_2 = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
 	fpr_y_mi_1, fpr_y_mi_2, fpr_p_mi_1, fpr_p_mi_2 = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
 	thresh_y_mi_1, thresh_y_mi_2, thresh_p_mi_1, thresh_p_mi_2 = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
 	mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
 	for run in RUNS:
-		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run]
+		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run] if not eps else result[dp][eps][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-		
 		m, nm = get_zeros(membership, per_instance_loss)
 		mi_1_zero_m.append(m)
 		mi_1_zero_nm.append(nm)
 		m, nm = get_zeros(membership, counts)
 		mi_2_zero_m.append(m)
 		mi_2_zero_nm.append(nm)
-		#plot_histogram(per_instance_loss)
-		#plot_distributions(per_instance_loss, membership)
-		#plot_sign_histogram(membership, counts, 100)
-		#plot_distributions(counts, membership, 2)
-		baseline_acc[run] = test_acc
-		train_accs[run] = train_acc
-		
+		plot_histogram(per_instance_loss)
+		plot_distributions(per_instance_loss, membership)
+		plot_sign_histogram(membership, counts, 100)
+		plot_distributions(counts, membership, 2)		
 		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
 		thresh_p_mi_1[run], fpr_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = thresh, fp / (gamma * 10000), adv, ppv
@@ -193,114 +210,11 @@ def generate_plots(result):
 		thresh_p_mi_2[run], fpr_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = thresh, fp / (gamma * 10000), adv, ppv
 		fp, adv, ppv = get_fp(membership, yeom_mi_outputs_1), get_adv(membership, yeom_mi_outputs_1), get_ppv(membership, yeom_mi_outputs_1)
 		thresh_y_mi_1[run], fpr_y_mi_1[run], adv_y_mi_1[run], ppv_y_mi_1[run] = train_loss, fp / (gamma * 10000), adv, ppv
-		
-	baseline_acc = np.mean(baseline_acc)
-	print(np.mean(train_accs), baseline_acc)
 	print('\nMI 1: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_1_zero_m), np.std(mi_1_zero_m), np.mean(mi_1_zero_nm), np.std(mi_1_zero_nm)))
 	print('\nMI 2: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_2_zero_m), np.std(mi_2_zero_m), np.mean(mi_2_zero_nm), np.std(mi_2_zero_nm)))
 	print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1), np.std(thresh_y_mi_1), np.mean(fpr_y_mi_1), np.std(fpr_y_mi_1), np.mean(adv_y_mi_1+fpr_y_mi_1), np.std(adv_y_mi_1+fpr_y_mi_1), np.mean(adv_y_mi_1), np.std(adv_y_mi_1), np.mean(ppv_y_mi_1), np.std(ppv_y_mi_1)))
 	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
-	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))
-
-    color = 0.1
-	y = dict()
-	for dp in DP:
-		test_acc_vec = np.zeros((A, B))
-		adv_y_mi_1, adv_y_mi_2, adv_p_mi_1, adv_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
-		ppv_y_mi_1, ppv_y_mi_2, ppv_p_mi_1, ppv_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
-		fpr_y_mi_1, fpr_y_mi_2, fpr_p_mi_1, fpr_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
-		thresh_y_mi_1, thresh_y_mi_2, thresh_p_mi_1, thresh_p_mi_2 = np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B)), np.zeros((A, B))
-		for a, eps in enumerate(EPSILONS):
-			mi_1_zero_m, mi_1_zero_nm, mi_2_zero_m, mi_2_zero_nm = [], [], [], []
-			for run in RUNS:
-				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result[dp][eps][run]
-				train_loss, train_acc, test_loss, test_acc = aux
-				true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-				test_acc_vec[a, run] = test_acc
-				m, nm = get_zeros(membership, per_instance_loss)
-				mi_1_zero_m.append(m)
-				mi_1_zero_nm.append(nm)
-				m, nm = get_zeros(membership, counts)
-				mi_2_zero_m.append(m)
-				mi_2_zero_nm.append(nm)
-				#print(eps, run)
-				#plot_histogram(per_instance_loss)
-				#plot_distributions(per_instance_loss, membership)
-				#plot_sign_histogram(membership, counts, 100)
-				#plot_distributions(counts, membership, 2)
-				thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
-				fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
-				thresh_p_mi_1[a, run], fpr_p_mi_1[a, run], adv_p_mi_1[a, run], ppv_p_mi_1[a, run] = thresh, fp / (gamma * 10000), adv, ppv
-				thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
-				fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
-				thresh_p_mi_2[a, run], fpr_p_mi_2[a, run], adv_p_mi_2[a, run], ppv_p_mi_2[a, run] = thresh, fp / (gamma * 10000), adv, ppv
-				fp, adv, ppv = get_fp(membership, yeom_mi_outputs_1), get_adv(membership, yeom_mi_outputs_1), get_ppv(membership, yeom_mi_outputs_1)
-				thresh_y_mi_1[a, run], fpr_y_mi_1[a, run], adv_y_mi_1[a, run], ppv_y_mi_1[a, run] = train_loss, fp / (gamma * 10000), adv, ppv
-				
-			print('\n'+str(eps)+'\n')
-			print('\nMI 1: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_1_zero_m), np.std(mi_1_zero_m), np.mean(mi_1_zero_nm), np.std(mi_1_zero_nm)))
-			print('\nMI 2: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(mi_2_zero_m), np.std(mi_2_zero_m), np.mean(mi_2_zero_nm), np.std(mi_2_zero_nm)))
-			print('\nYeom MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_y_mi_1[a]), np.std(thresh_y_mi_1[a]), np.mean(fpr_y_mi_1[a]), np.std(fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.std(adv_y_mi_1[a]+fpr_y_mi_1[a]), np.mean(adv_y_mi_1[a]), np.std(adv_y_mi_1[a]), np.mean(ppv_y_mi_1[a]), np.std(ppv_y_mi_1[a])))
-			print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1[a]), np.std(thresh_p_mi_1[a]), np.mean(fpr_p_mi_1[a]), np.std(fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.std(adv_p_mi_1[a]+fpr_p_mi_1[a]), np.mean(adv_p_mi_1[a]), np.std(adv_p_mi_1[a]), np.mean(ppv_p_mi_1[a]), np.std(ppv_p_mi_1[a])))
-			print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2[a]), np.std(thresh_p_mi_2[a]), np.mean(fpr_p_mi_2[a]), np.std(fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.std(adv_p_mi_2[a]+fpr_p_mi_2[a]), np.mean(adv_p_mi_2[a]), np.std(adv_p_mi_2[a]), np.mean(ppv_p_mi_2[a]), np.std(ppv_p_mi_2[a])))
-			
-		if args.plot == 'acc':
-			y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
-			plt.errorbar(EPSILONS, 1 - np.mean(test_acc_vec, axis=1) / baseline_acc, yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'mi':
-			if args.metric == 'adv':
-				if alpha == None:
-					plt.errorbar(EPSILONS, np.mean(adv_y_mi_1, axis=1), yerr=np.std(adv_y_mi_1, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom MI 1')
-					plt.errorbar(EPSILONS, np.mean(adv_y_mi_2, axis=1), yerr=np.std(adv_y_mi_2, axis=1), color=str(color+0.4), fmt='-', capsize=2, label='Yeom MI 2')
-				plt.errorbar(EPSILONS, np.mean(adv_p_mi_1, axis=1), yerr=np.std(adv_p_mi_1, axis=1), color=str(color), fmt='-', capsize=2, label='MI 1')
-				plt.errorbar(EPSILONS, np.mean(adv_p_mi_2, axis=1), yerr=np.std(adv_p_mi_2, axis=1), color=str(color), fmt='-', capsize=2, label='MI 2')
-			elif args.metric == 'ppv':
-				if alpha == None:
-					plt.errorbar(EPSILONS, np.mean(ppv_y_mi_1, axis=1), yerr=np.std(ppv_y_mi_1, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom MI 1')
-					plt.errorbar(EPSILONS, np.mean(ppv_y_mi_2, axis=1), yerr=np.std(ppv_y_mi_2, axis=1), color=str(color+0.4), fmt='-.', capsize=2, label='Yeom MI 2')
-				plt.errorbar(EPSILONS, np.mean(ppv_p_mi_1, axis=1), yerr=np.std(ppv_p_mi_1, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 1')
-				plt.errorbar(EPSILONS, np.mean(ppv_p_mi_2, axis=1), yerr=np.std(ppv_p_mi_2, axis=1), color=str(color), fmt='-.', capsize=2, label='MI 2')
-		color += 0.2
-
-	plt.xscale('log')
-	plt.xlabel('Privacy Budget ($\epsilon$)')	
-	if args.plot == 'acc':
-		plt.ylabel('Accuracy Loss')
-		plt.yticks(np.arange(0, 1.1, step=0.2))
-		plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 2), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
-		plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 2), textcoords="offset points", xytext=(-20, -10), ha='right', color=str(0.1))
-		plt.tight_layout()
-	else:
-		bottom, top = plt.ylim()
-		if args.metric == 'adv':
-			if alpha == None:
-				plt.errorbar(EPS, improved_limit(EPS), color='black', fmt='--', capsize=2, label='Improved Limit')
-				plt.annotate("$Adv_\mathcal{A}$ Bound", pretty_position(EPS, improved_limit(EPS), 50), textcoords="offset points", xytext=(0,-20), ha='left')
-				plt.annotate("Yeom MI 1", pretty_position(EPSILONS, np.mean(adv_y_mi_1, axis=1), 0), textcoords="offset points", xytext=(-40,20), ha='left', color=str(0.5))
-				plt.annotate("Yeom MI 2", pretty_position(EPSILONS, np.mean(adv_y_mi_2, axis=1), 4), textcoords="offset points", xytext=(-20,-30), ha='left', color=str(0.5))
-			else:
-				plt.errorbar(EPS, [adv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
-				plt.annotate("$Adv_\mathcal{A}$ Bound", pretty_position(EPS, [adv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], 100), textcoords="offset points", xytext=(-5,0), ha='right')
-			plt.ylim(0, 0.3)
-			plt.yticks(np.arange(0, 0.31, step=0.05))
-			plt.annotate("MI 1", pretty_position(EPSILONS, np.mean(adv_p_mi_1, axis=1), 3), textcoords="offset points", xytext=(-10,20), ha='left', color=str(0.1))
-			plt.annotate("MI 2", pretty_position(EPSILONS, np.mean(adv_p_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,20), ha='left', color=str(0.1))	
-			plt.ylabel('$Adv_\mathcal{A}$')
-		elif args.metric == 'ppv':
-			if alpha == None:
-				plt.annotate("Yeom MI 1", pretty_position(EPSILONS, np.mean(ppv_y_mi_1, axis=1), 0), textcoords="offset points", xytext=(-40,20), ha='left', color=str(0.5))
-				plt.annotate("Yeom MI 2", pretty_position(EPSILONS, np.mean(ppv_y_mi_2, axis=1), 4), textcoords="offset points", xytext=(-20,-20), ha='left', color=str(0.5))
-			else:
-				plt.errorbar(EPS, [ppv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], color='black', fmt='--', capsize=2, label='Improved Limit')
-				plt.annotate("$PPV_\mathcal{A}$ Bound", pretty_position(EPS, [ppv_lim(eps, delta=delta, alpha=alpha) for eps in EPS], 30), textcoords="offset points", xytext=(5,0), ha='left')
-			plt.ylim(0.5, 0.62)
-			plt.yticks(np.arange(0.5, 0.63, step=0.02))
-			plt.annotate("MI 1", pretty_position(EPSILONS, np.mean(ppv_p_mi_1, axis=1), 3), textcoords="offset points", xytext=(-10,20), ha='left', color=str(0.1))
-			plt.annotate("MI 2", pretty_position(EPSILONS, np.mean(ppv_p_mi_2, axis=1), 4), textcoords="offset points", xytext=(0,-20), ha='left', color=str(0.1))	
-			plt.ylabel('$PPV_\mathcal{A}$')
-		plt.tight_layout()
-	plt.show()
-
+	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))				
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -312,7 +226,7 @@ if __name__ == '__main__':
 	parser.add_argument('--per_class_thresh', type=int, default=0)
 	parser.add_argument('--fixed_thresh', type=int, default=0)
 	parser.add_argument('--plot', type=str, default='acc')
-	parser.add_argument('--metric', type=str, default='adv')
+	parser.add_argument('--eps', type=float, default=None)
 	args = parser.parse_args()
 	print(vars(args))
 
@@ -322,4 +236,7 @@ if __name__ == '__main__':
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
-	generate_plots(result)
+	if args.plot == 'acc':
+		plot_accuracy(result)
+	else:
+		plot_privacy_leakage(result, eps)
