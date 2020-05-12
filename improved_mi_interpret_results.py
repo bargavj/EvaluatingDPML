@@ -114,24 +114,6 @@ def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_thresh
 			return thresh, np.where(counts >= thresh, 1, 0)
 
 
-def get_pred_mem_ai(per_instance_loss, proposed_mi_outputs, proposed_ai_outputs, i, method=1, fpr_threshold=None):
-	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-	true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
-	high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
-	low_prob = 1 - high_prob
-	if method == 1:
-		thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
-		low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
-		high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
-	else:
-		thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
-		low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
-		high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
-	pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
-	mask = [a | b for a, b in zip(low_mem, high_mem)]
-	return thresh, mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
-
-
 def plot_distributions(pred_vector, true_vector, method=1):
 	fpr, tpr, phi = roc_curve(true_vector, pred_vector, pos_label=1)
 	fpr, tpr, phi = np.array(fpr), np.array(tpr), np.array(phi)
