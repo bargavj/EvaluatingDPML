@@ -29,7 +29,7 @@ def load_attack_data():
     return train_x.astype('float32'), train_y.astype('int32'), test_x.astype('float32'), test_y.astype('int32')
 
 
-def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
     if dataset == None:
         dataset = load_data('target_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
@@ -74,7 +74,7 @@ def train_target_model(dataset=None, epochs=100, batch_size=100, learning_rate=0
     return attack_x, attack_y, classes, classifier, aux
 
 
-def train_shadow_models(n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', save=True):
+def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', save=True):
     attack_x, attack_y = [], []
     classes = []
     for i in range(n_shadow):
@@ -225,6 +225,7 @@ def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes
     print('-' * 10 + 'SHOKRI\'S MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
+        args=args,
         epochs=args.target_epochs,
         batch_size=args.target_batch_size,
         learning_rate=args.target_learning_rate,
@@ -263,6 +264,7 @@ def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_ins
     v_true_x = np.vstack([v_train_x, v_test_x])
     v_true_y = np.concatenate([v_train_y, v_test_y])    
     v_pred_y, v_membership, v_test_classes, v_classifier, aux = train_target_model(
+        args=args,
         dataset=v_dataset,
         epochs=args.target_epochs,
         batch_size=args.target_batch_size,
