@@ -149,7 +149,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         c_test_x, c_test_y = test_x[c_test_indices], test_y[c_test_indices]
         c_dataset = (c_train_x, c_train_y, c_test_x, c_test_y)
         classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
-        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': c_test_x},
             num_epochs=1,
             shuffle=False)
