@@ -1,5 +1,6 @@
 from attack import save_data, load_data, train_target_model, yeom_membership_inference, shokri_membership_inference, yeom_attribute_inference
 from utilities import log_loss, get_random_features
+from sklearn.metrics import roc_curve
 import numpy as np
 import argparse
 import os
@@ -39,7 +40,9 @@ def run_experiment(args):
     print(features)
 
     # Yeom's membership inference attack when only train_loss is known 
-    yeom_mi_outputs_1 = yeom_membership_inference(per_instance_loss, membership, train_loss)
+    pred_membership = yeom_membership_inference(per_instance_loss, membership, train_loss)
+    fpr, tpr, thresholds = roc_curve(membership, pred_membership, pos_label=1)
+    yeom_mem_adv = tpr[1] - fpr[1]
 
     # Shokri's membership inference attack based on shadow model training
     shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
