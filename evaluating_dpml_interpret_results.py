@@ -40,7 +40,7 @@ def pretty_position(X, Y, pos):
 
 
 def plot_advantage(result):
-	train_acc, baseline_acc, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	train_acc, baseline_acc, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
 	print(train_acc, baseline_acc)
 	color = 0.1
 	y = dict()
@@ -50,7 +50,7 @@ def plot_advantage(result):
 		for eps in EPSILONS:
 			test_acc_d, mem_adv_d, attr_adv_d, attack_adv_d = [], [], [], []
 			for run in RUNS:
-				train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, features = result[dp][eps][run]
+				train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_pred, features = result[dp][eps][run]
 				test_acc_d.append(test_acc)
 				mem_adv_d.append(mem_adv) # adversary's advantage using membership inference attack of Yeom et al.
 				attack_adv_d.append(attack_adv) # adversary's advantage using membership inference attack of Shokri et al.
@@ -111,7 +111,7 @@ def plot_advantage(result):
 
 def members_revealed_fixed_fpr(result):
 	thres = args.fpr_threshold# 0.01 == 1% FPR, 0.02 == 2% FPR, 0.05 == 5% FPR
-	_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
 	pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
 	#pred = attack_pred[:,1]
 	print(len(_members_revealed(membership, pred, thres)))
@@ -119,7 +119,7 @@ def members_revealed_fixed_fpr(result):
 		for eps in EPSILONS:
 			mems_revealed = []
 			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = result[dp][eps][run]
+				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = result[dp][eps][run]
 				pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
 				#pred = attack_pred[:,1]
 				mems_revealed.append(_members_revealed(membership, pred, thres))
@@ -167,12 +167,11 @@ def ppv_across_runs(mem, pred):
 
 
 def members_revealed_fixed_threshold(result):
-	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_mem, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
 	print(attack_adv, mem_adv, np.mean(attr_adv))
 	pred = np.where(mem_pred > train_loss, 0, 1)
 	#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
 	#attr_pred = np.array(attr_pred)
-	#membership = np.array(attr_mem).ravel()
 	#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
 	tn, fp, fn, tp = confusion_matrix(membership, pred).ravel()
 	print(tp, tp / (tp + fp))
@@ -183,12 +182,11 @@ def members_revealed_fixed_threshold(result):
 		for eps in EPSILONS:
 			ppv, preds = [], []
 			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_mem, attr_pred, _ = result[dp][eps][run]
+				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = result[dp][eps][run]
 				pred = np.where(mem_pred > train_loss, 0, 1)
 				preds.append(pred)				
 				#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
 				#attr_pred = np.array(attr_pred)
-				#membership = np.array(attr_mem).ravel()
 				#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
 				ppv.append(get_ppv(membership, pred))
 			print(dp, eps, np.mean(ppv))
