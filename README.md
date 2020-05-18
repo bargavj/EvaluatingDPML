@@ -1,6 +1,6 @@
 # Analysing the Leaky Cauldron
 
-The goal of this project is to evaluates the privacy leakage of differential private machine learning algorithms.
+The goal of this project is to evaluate the privacy leakage of differential private machine learning algorithms.
 
 The code has been adapted from the code base (https://github.com/csong27/membership-inference) of membership inference attack work by Shokri et al. (https://ieeexplore.ieee.org/document/7958568).
 
