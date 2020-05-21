@@ -58,7 +58,7 @@ def run_experiment(args):
         os.makedirs(RESULT_PATH+args.train_dataset)
     
     if args.target_privacy == 'no_privacy':
-        pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, pred_membership_all, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+        pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, pred_membership_all, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+'no_privacy_'+str(args.l2_ratio)+'.p', 'wb'))
     else:
         pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, pred_membership_all, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
