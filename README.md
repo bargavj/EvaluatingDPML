@@ -51,7 +51,7 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
 
 ## Revisiting Membership Inference under Realistic Assumptions
 
-To replicate the results of the paper [*Revisiting Membership Inference under Realistic Assumptions*](https://arxiv.org/pdf/2005.10881.pdf), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
+To replicate the results of the paper [*Revisiting Membership Inference under Realistic Assumptions*](https://arxiv.org/pdf/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
 
 Run `improved_mi_interpret_results.py $dataset --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--plot` specifies the type of plot to be printed
