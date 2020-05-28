@@ -20,6 +20,7 @@ def run_experiment(args):
     batch_size = args.target_batch_size
 
     pred_y, membership, test_classes, classifier, aux = train_target_model(
+        args=args,
         dataset=dataset,
         epochs=args.target_epochs,
         batch_size=args.target_batch_size,
