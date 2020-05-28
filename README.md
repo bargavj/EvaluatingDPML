@@ -4,6 +4,11 @@ The goal of this project is to evaluate the privacy leakage of differential priv
 
 The code has been adapted from the [code base](https://github.com/csong27/membership-inference) of membership inference attack work by [Shokri et al.](https://ieeexplore.ieee.org/document/7958568)
 
+Below we describe the procedure to run the experiments for the following projects:
+* [Evaluating Differentially Private Machine Learning in Practice](#evaluating-differentially-private-machine-learning-in-practice)
+* [Revisiting Membership Inference under Realistic Assumptions](#revisiting-membership-inference-under-realistic-assumptions)
+
+
 ### Requirements
 
 - Python 2.7 or higher (https://www.anaconda.com/distribution/)
@@ -14,10 +19,6 @@ The code has been adapted from the [code base](https://github.com/csong27/member
 
 Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. Purchase-100 data set can be downloaded from [Kaggle web site](https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data). This can be pre-processed using the preprocess_purchase.py scipt provided in the repository. Alternatively, the files for Purchase-100 data set can be found [here](https://drive.google.com/open?id=1nDDr8OWRaliIrUZcZ-0I8sEB2WqAXdKZ).
 For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder (where `$dataset` is a placeholder for the data set file name, e.g. for Purchase-100 data set, `$dataset` will be purchase_100).
-
-Below we describe the procedure to run the experiments for the following projects:
-* [Evaluating Differentially Private Machine Learning in Practice](#evaluating-differentially-private-machine-learning-in-practice)
-* [Revisiting Membership Inference under Realistic Assumptions](#revisiting-membership-inference-under-realistic-assumptions)
 
 
 ## Evaluating Differentially Private Machine Learning in Practice
