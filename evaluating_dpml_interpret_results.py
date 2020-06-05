@@ -1,6 +1,7 @@
 from sklearn.metrics import roc_curve, confusion_matrix
 from scipy import stats
 import matplotlib.pyplot as plt
+from matplotlib_venn import venn3
 import numpy as np
 import pickle
 import argparse
@@ -165,6 +166,52 @@ def ppv_across_runs(mem, pred):
 	print("exactly 5")
 	print(tp, fp, tp / (tp + fp))
 
+def generate_venn(mem, preds):
+	run1 = preds[0]
+	run2 = preds[1]
+
+	run1_tp = []
+	run1_fp = []
+	run2_tp = []
+	run2_fp = []
+	bothpos = []
+	bothtruepos = []
+
+	for index in range(len(mem)):
+		if mem[index] == 0:
+			if run1[index] == 1:
+				run1_fp += [index]
+			if run2[index] == 1:
+				run2_fp += [index]
+		else:  # mem(index) == 0
+			if run1[index] == 1:
+				run1_tp += [index]
+			if run2[index] == 1:
+				run2_tp += [index]
+
+	run1pos = run1_fp + run1_tp
+	run2pos = run2_fp + run2_tp
+
+	for mem in run1pos:
+		if mem in run2pos:
+			bothpos += [mem]
+	for mem in run1_tp:
+		if mem in run2_tp:
+			bothtruepos += [mem]
+
+	s1 = len(run1_fp)
+	s2 = len(run2_fp)
+	s3 = len(bothpos) - len(bothtruepos)
+	s4 = 0
+	s5 = len(run1_tp)
+	s6 = len(run2_tp)
+	s7 = len(bothtruepos)
+
+	venn3(subsets=(s1,s2,s3,s4,s5,s6,s7), set_labels=("Run 1", "Run 2", "TP"))
+	plt.text(-0.70, 0.30, "FP")
+	plt.text(0.61, 0.30, "FP")
+	plt.show()
+
 
 def members_revealed_fixed_threshold(result):
 	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
@@ -190,8 +237,11 @@ def members_revealed_fixed_threshold(result):
 				#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
 				ppv.append(get_ppv(membership, pred))
 			print(dp, eps, np.mean(ppv))
-			preds = np.sum(np.array(preds), axis=0)
-			ppv_across_runs(membership, preds)
+			sumpreds = np.sum(np.array(preds), axis=0)
+			ppv_across_runs(membership, sumpreds)
+
+	if args.venn == 1:
+		generate_venn(membership, preds)
 
 
 if __name__ == '__main__':
@@ -203,6 +253,7 @@ if __name__ == '__main__':
 	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--fpr_threshold', type=float, default=0.01)
 	parser.add_argument('--silent', type=int, default=1)
+	parser.add_argument('--venn', type=int, default=0)
 	args = parser.parse_args()
 	print(vars(args))
 
