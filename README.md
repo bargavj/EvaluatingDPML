@@ -47,9 +47,9 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
 - `--function` prints the plots if set to 1 (default), or gives the membership revelation results if set to 2.
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
-    - 'attack' prints the privacy leakage due to Shokri et al. membership inference attack
-    - 'mem' prints the privacy leakage due to Yu et al. membership inference attack
-    - 'attr' prints the privacy leakage due to Yu et al. attribute inference attack
+    - 'shokri_mi' prints the privacy leakage due to Shokri et al. membership inference attack
+    - 'yeom_mi' prints the privacy leakage due to Yeom et al. membership inference attack
+    - 'yeom_ai' prints the privacy leakage due to Yeom et al. attribute inference attack
 - `--silent` specifies if the plot values are to be displayed (0) or not (1 - default)
 - `--fpr_threshold` sets the False Positive Rate threshold (refer the paper)
 
