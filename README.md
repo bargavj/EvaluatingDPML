@@ -44,7 +44,7 @@ Run `python evaluating_dpml.py $dataset --target_model=$model --target_l2_ratio=
 Update the `$lambda` variables accordingly and run `./evaluating_dpml_run.sh $dataset` on terminal. Results will be stored in `results/$dataset` folder.
 
 Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
-- `--function` prints the plots if set to 1 (default), or gives the membership revelation results if set to 2.
+- `--function` prints the plots if set to 1 (default), or gives the membership revelation results at fixed FPR if set to 2, or gives the membership revelation results at fixed threshold if set to 3.
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
     - 'shokri_mi' prints the privacy leakage due to Shokri et al. membership inference attack
@@ -52,6 +52,7 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
     - 'yeom_ai' prints the privacy leakage due to Yeom et al. attribute inference attack
 - `--silent` specifies if the plot values are to be displayed (0) or not (1 - default)
 - `--fpr_threshold` sets the False Positive Rate threshold (refer the paper)
+- `--venn` plots the venn diagram of members identified by MI attack across two runs when set to 1, otherwise it does not plot when set to 0 (default). This functionality works only when `--function=3`
 
 
 ## Revisiting Membership Inference under Realistic Assumptions
