@@ -41,51 +41,51 @@ def pretty_position(X, Y, pos):
 
 
 def plot_advantage(result):
-	train_acc, baseline_acc, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	train_acc, baseline_acc, train_loss, membership, _, shokri_mem_confidence, _, per_instance_loss, _, per_instance_loss_all, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
 	print(train_acc, baseline_acc)
 	color = 0.1
 	y = dict()
 	for dp in DP:
-		test_acc_mean, mem_adv_mean, attr_adv_mean, attack_adv_mean = [], [], [], []
-		test_acc_std, mem_adv_std, attr_adv_std, attack_adv_std = [], [], [], []
+		test_acc_mean, yeom_mem_adv_mean, yeom_attr_adv_mean, shokri_mem_adv_mean = [], [], [], []
+		test_acc_std, yeom_mem_adv_std, yeom_attr_adv_std, shokri_mem_adv_std = [], [], [], []
 		for eps in EPSILONS:
-			test_acc_d, mem_adv_d, attr_adv_d, attack_adv_d = [], [], [], []
+			test_acc_d, yeom_mem_adv_d, yeom_attr_adv_d, shokri_mem_adv_d = [], [], [], []
 			for run in RUNS:
-				train_acc, test_acc, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_pred, features = result[dp][eps][run]
+				train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, per_instance_loss, features = result[dp][eps][run]
 				test_acc_d.append(test_acc)
-				mem_adv_d.append(mem_adv) # adversary's advantage using membership inference attack of Yeom et al.
-				attack_adv_d.append(attack_adv) # adversary's advantage using membership inference attack of Shokri et al.
-				attr_adv_d.append(np.mean(attr_adv)) # adversary's advantage using attribute inference attack of Yeom et al.
+				yeom_mem_adv_d.append(yeom_mem_adv) # adversary's advantage using membership inference attack of Yeom et al.
+				shokri_mem_adv_d.append(shokri_mem_adv) # adversary's advantage using membership inference attack of Shokri et al.
+				yeom_attr_adv_d.append(np.mean(yeom_attr_adv)) # adversary's advantage using attribute inference attack of Yeom et al.
 			test_acc_mean.append(np.mean(test_acc_d))
 			test_acc_std.append(np.std(test_acc_d))
-			mem_adv_mean.append(np.mean(mem_adv_d))
-			mem_adv_std.append(np.std(mem_adv_d))
-			attack_adv_mean.append(np.mean(attack_adv_d))
-			attack_adv_std.append(np.std(attack_adv_d))
-			attr_adv_mean.append(np.mean(attr_adv_d))
-			attr_adv_std.append(np.std(attr_adv_d))
+			yeom_mem_adv_mean.append(np.mean(yeom_mem_adv_d))
+			yeom_mem_adv_std.append(np.std(yeom_mem_adv_d))
+			shokri_mem_adv_mean.append(np.mean(shokri_mem_adv_d))
+			shokri_mem_adv_std.append(np.std(shokri_mem_adv_d))
+			yeom_attr_adv_mean.append(np.mean(yeom_attr_adv_d))
+			yeom_attr_adv_std.append(np.std(yeom_attr_adv_d))
 
 			if args.silent == 0:
-				if args.plot == 'acc':
+				if args.plot == 'Accuracy':
 					print(dp, eps, (baseline_acc - np.mean(test_acc_d)) / baseline_acc, np.std(test_acc_d))
-				elif args.plot == 'attack':
-					print(dp, eps, np.mean(attack_adv_d), np.std(attack_adv_d))
-				elif args.plot == 'attr':
-					print(dp, eps, np.mean(attr_adv_d), np.std(attr_adv_d))
-				elif args.plot == 'mem':
-					print(dp, eps, np.mean(mem_adv_d), np.std(mem_adv_d))
-		if args.plot == 'acc':
+				elif args.plot == 'Shokri MI':
+					print(dp, eps, np.mean(shokri_mem_adv_d), np.std(shokri_mem_adv_d))
+				elif args.plot == 'Yeom AI':
+					print(dp, eps, np.mean(yeom_attr_adv_d), np.std(yeom_attr_adv_d))
+				elif args.plot == 'Yeom MI':
+					print(dp, eps, np.mean(yeom_mem_adv_d), np.std(yeom_mem_adv_d))
+		if args.plot == 'Accuracy':
 			y[dp] = (baseline_acc - test_acc_mean) / baseline_acc
 			plt.errorbar(EPSILONS, (baseline_acc - test_acc_mean) / baseline_acc, yerr=test_acc_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'attack':
-			y[dp] = attack_adv_mean
-			plt.errorbar(EPSILONS, attack_adv_mean, yerr=attack_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'attr':
-			y[dp] = attr_adv_mean
-			plt.errorbar(EPSILONS, attr_adv_mean, yerr=attr_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'mem':
-			y[dp] = mem_adv_mean
-			plt.errorbar(EPSILONS, mem_adv_mean, yerr=mem_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+		elif args.plot == 'Shokri MI':
+			y[dp] = shokri_mem_adv_mean
+			plt.errorbar(EPSILONS, shokri_mem_adv_mean, yerr=shokri_mem_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+		elif args.plot == 'Yeom AI':
+			y[dp] = yeom_attr_adv_mean
+			plt.errorbar(EPSILONS, yeom_attr_adv_mean, yerr=yeom_attr_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
+		elif args.plot == 'Yeom MI':
+			y[dp] = yeom_mem_adv_mean
+			plt.errorbar(EPSILONS, yeom_mem_adv_mean, yerr=yeom_mem_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
 		color += 0.2
 
 	plt.xscale('log')
@@ -112,17 +112,17 @@ def plot_advantage(result):
 
 def members_revealed_fixed_fpr(result):
 	thres = args.fpr_threshold# 0.01 == 1% FPR, 0.02 == 2% FPR, 0.05 == 5% FPR
-	_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
-	pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
-	#pred = attack_pred[:,1]
+	_, _, train_loss, membership, _, shokri_mem_confidence, _, per_instance_loss, _, per_instance_loss_all, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	pred = (max(per_instance_loss) - per_instance_loss) / (max(per_instance_loss) - min(per_instance_loss))
+	#pred = shokri_mem_confidence[:,1]
 	print(len(_members_revealed(membership, pred, thres)))
 	for dp in DP:
 		for eps in EPSILONS:
 			mems_revealed = []
 			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = result[dp][eps][run]
-				pred = (max(mem_pred) - mem_pred) / (max(mem_pred) - min(mem_pred))
-				#pred = attack_pred[:,1]
+				_, _, train_loss, membership, _, shokri_mem_confidence, _, per_instance_loss, _, per_instance_loss_all, _ = result[dp][eps][run]
+				pred = (max(per_instance_loss) - per_instance_loss) / (max(per_instance_loss) - min(per_instance_loss))
+				#pred = shokri_mem_confidence[:,1]
 				mems_revealed.append(_members_revealed(membership, pred, thres))
 			s = set.intersection(*mems_revealed)
 			print(dp, eps, len(s))
@@ -214,11 +214,11 @@ def generate_venn(mem, preds):
 
 
 def members_revealed_fixed_threshold(result):
-	_, _, train_loss, membership, attack_adv, attack_pred, mem_adv, mem_pred, attr_adv, attr_pred, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
-	print(attack_adv, mem_adv, np.mean(attr_adv))
-	pred = np.where(mem_pred > train_loss, 0, 1)
-	#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
-	#attr_pred = np.array(attr_pred)
+	_, _, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, per_instance_loss_all, _ = pickle.load(open(DATA_PATH+MODEL+'no_privacy_'+str(args.l2_ratio)+'.p', 'rb'))
+	print(shokri_mem_adv, yeom_mem_adv, np.mean(yeom_attr_adv))
+	pred = np.where(per_instance_loss > train_loss, 0, 1)
+	#pred = np.where(shokri_mem_confidence[:,1] <= 0.5, 0, 1)
+	#attr_pred = np.array(per_instance_loss_all)
 	#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
 	tn, fp, fn, tp = confusion_matrix(membership, pred).ravel()
 	print(tp, tp / (tp + fp))
@@ -229,11 +229,11 @@ def members_revealed_fixed_threshold(result):
 		for eps in EPSILONS:
 			ppv, preds = [], []
 			for run in RUNS:
-				_, _, train_loss, membership, _, attack_pred, _, mem_pred, _, attr_pred, _ = result[dp][eps][run]
-				pred = np.where(mem_pred > train_loss, 0, 1)
+				_, _, train_loss, membership, _, shokri_mem_confidence, _, per_instance_loss, _, per_instance_loss_all, _ = result[dp][eps][run]
+				pred = np.where(per_instance_loss > train_loss, 0, 1)
 				preds.append(pred)				
-				#pred = np.where(attack_pred[:,1] <= 0.5, 0, 1)
-				#attr_pred = np.array(attr_pred)
+				#pred = np.where(shokri_mem_confidence[:,1] <= 0.5, 0, 1)
+				#attr_pred = np.array(per_instance_loss_all)
 				#pred = np.where(stats.norm(0, train_loss).pdf(attr_pred[:,0,:]) >= stats.norm(0, train_loss).pdf(attr_pred[:,1,:]), 0, 1).ravel()
 				ppv.append(get_ppv(membership, pred))
 			print(dp, eps, np.mean(ppv))
@@ -250,7 +250,7 @@ if __name__ == '__main__':
 	parser.add_argument('--model', type=str, default='nn')
 	parser.add_argument('--l2_ratio', type=str, default='1e-5')
 	parser.add_argument('--function', type=int, default=1)
-	parser.add_argument('--plot', type=str, default='acc')
+	parser.add_argument('--plot', type=str, default='Accuracy')
 	parser.add_argument('--fpr_threshold', type=float, default=0.01)
 	parser.add_argument('--silent', type=int, default=1)
 	parser.add_argument('--venn', type=int, default=0)
