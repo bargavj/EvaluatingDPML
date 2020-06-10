@@ -66,24 +66,24 @@ def plot_advantage(result):
 			yeom_attr_adv_std.append(np.std(yeom_attr_adv_d))
 
 			if args.silent == 0:
-				if args.plot == 'Accuracy':
+				if args.plot == 'acc':
 					print(dp, eps, (baseline_acc - np.mean(test_acc_d)) / baseline_acc, np.std(test_acc_d))
-				elif args.plot == 'Shokri MI':
+				elif args.plot == 'shokri_mi':
 					print(dp, eps, np.mean(shokri_mem_adv_d), np.std(shokri_mem_adv_d))
-				elif args.plot == 'Yeom AI':
+				elif args.plot == 'yeom_ai':
 					print(dp, eps, np.mean(yeom_attr_adv_d), np.std(yeom_attr_adv_d))
-				elif args.plot == 'Yeom MI':
+				elif args.plot == 'yeom_mi':
 					print(dp, eps, np.mean(yeom_mem_adv_d), np.std(yeom_mem_adv_d))
-		if args.plot == 'Accuracy':
+		if args.plot == 'acc':
 			y[dp] = (baseline_acc - test_acc_mean) / baseline_acc
 			plt.errorbar(EPSILONS, (baseline_acc - test_acc_mean) / baseline_acc, yerr=test_acc_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'Shokri MI':
+		elif args.plot == 'shokri_mi':
 			y[dp] = shokri_mem_adv_mean
 			plt.errorbar(EPSILONS, shokri_mem_adv_mean, yerr=shokri_mem_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'Yeom AI':
+		elif args.plot == 'yeom_ai':
 			y[dp] = yeom_attr_adv_mean
 			plt.errorbar(EPSILONS, yeom_attr_adv_mean, yerr=yeom_attr_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
-		elif args.plot == 'Yeom MI':
+		elif args.plot == 'yeom_mi':
 			y[dp] = yeom_mem_adv_mean
 			plt.errorbar(EPSILONS, yeom_mem_adv_mean, yerr=yeom_mem_adv_std, color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
 		color += 0.2
@@ -250,7 +250,7 @@ if __name__ == '__main__':
 	parser.add_argument('--model', type=str, default='nn')
 	parser.add_argument('--l2_ratio', type=str, default='1e-5')
 	parser.add_argument('--function', type=int, default=1)
-	parser.add_argument('--plot', type=str, default='Accuracy')
+	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--fpr_threshold', type=float, default=0.01)
 	parser.add_argument('--silent', type=int, default=1)
 	parser.add_argument('--venn', type=int, default=0)
