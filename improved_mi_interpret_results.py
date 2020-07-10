@@ -60,9 +60,11 @@ def get_data():
 def pretty_position(X, Y, pos):
 	return ((X[pos] + X[pos+1]) / 2, (Y[pos] + Y[pos+1]) / 2)
 
-def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=None, per_class_thresh=False, fixed_thresh=False):
+def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=None, per_class_thresh=False, fixed_thresh=False):
+	# method == "yeom" runs an improved version of the Yeom attack that finds a better threshold than the original
+	# method == "merlin" runs a new attack, which uses the direction of the change in per-instance loss for the record
 	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-	if method == 1:
+	if method == 'yeom':
 		if per_class_thresh:
 			classes = np.unique(true_y)
 			pred_membership = np.zeros(len(v_membership))
@@ -85,7 +87,7 @@ def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_thresh
 		else:
 			thresh = -get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
 			return max(0, thresh), np.where(per_instance_loss <= thresh, 1, 0)
-	else:
+	else:  # In this case, run the Merlin attack.
 		if per_class_thresh:
 			classes = np.unique(true_y)
 			pred_membership = np.zeros(len(v_membership))
@@ -200,11 +202,13 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 		plot_histogram(per_instance_loss)
 		plot_distributions(per_instance_loss, membership)
 		plot_sign_histogram(membership, counts, 100)
-		plot_distributions(counts, membership, 2)		
-		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=1, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		plot_distributions(counts, membership, 2)
+		# As used below, method == 'yeom' runs a Yeom attack but finds a better threshold than is used in the original Yeom attack.
+		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
 		thresh_p_mi_1[run], fpr_p_mi_1[run], adv_p_mi_1[run], ppv_p_mi_1[run] = thresh, fp / (gamma * 10000), adv, ppv
-		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method=2, fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		# As used below, method == 'merlin' runs a new threshold-based membership inference attack that uses the direction of the change in per-instance loss for the record.
+		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
 		thresh_p_mi_2[run], fpr_p_mi_2[run], adv_p_mi_2[run], ppv_p_mi_2[run] = thresh, fp / (gamma * 10000), adv, ppv
 		fp, adv, ppv = get_fp(membership, yeom_mi_outputs_1), get_adv(membership, yeom_mi_outputs_1), get_ppv(membership, yeom_mi_outputs_1)
