@@ -107,22 +107,22 @@ def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_t
 			thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
 			return thresh, np.where(counts >= thresh, 1, 0)
 
-def plot_distributions(pred_vector, true_vector, method=1):
+def plot_distributions(pred_vector, true_vector, method='yeom'):
 	fpr, tpr, phi = roc_curve(true_vector, pred_vector, pos_label=1)
 	fpr, tpr, phi = np.array(fpr), np.array(tpr), np.array(phi)
-	if method == 1:
+	if method == 'yeom':
 		fpr = 1 - fpr
 		tpr = 1 - tpr
 	PPV_A = tpr / (tpr + gamma * fpr)
 	Adv_A = tpr - fpr
 	fig, ax1 = plt.subplots()
-	if method == 1:
+	if method == 'yeom':
 		phi, fpr, Adv_A, PPV_A = phi[:-1], fpr[:-1], Adv_A[:-1], PPV_A[:-1]
 	ax1.plot(phi, Adv_A, label="Adv", color='black')
 	ax1.plot(phi, PPV_A, label="PPV", color='black')
 	ax2 = ax1.twinx()
 	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
-	if method == 1:
+	if method == 'yeom':
 		ax1.set_xscale('log')
 		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-5,10), ha='right')
 		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-20,20), ha='left')
@@ -200,9 +200,9 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 		mi_2_zero_m.append(m)
 		mi_2_zero_nm.append(nm)
 		plot_histogram(per_instance_loss)
-		plot_distributions(per_instance_loss, membership)
+		plot_distributions(per_instance_loss, membership, method='yeom')
 		plot_sign_histogram(membership, counts, 100)
-		plot_distributions(counts, membership, 2)
+		plot_distributions(counts, membership, method='merlin')
 		# As used below, method == 'yeom' runs a Yeom attack but finds a better threshold than is used in the original Yeom attack.
 		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
