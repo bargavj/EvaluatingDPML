@@ -7,7 +7,7 @@ import argparse
 
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
-EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+EPSILONS = [0.1, 1.0, 10.0, 100.0]
 PERTURBATION = 'grad_pert_'
 DP = ['gdp_', 'rdp_']
 TYPE = ['o-', '.-']
@@ -118,8 +118,8 @@ def plot_distributions(pred_vector, true_vector, method='yeom'):
 	fig, ax1 = plt.subplots()
 	if method == 'yeom':
 		phi, fpr, Adv_A, PPV_A = phi[:-1], fpr[:-1], Adv_A[:-1], PPV_A[:-1]
-	ax1.plot(phi, Adv_A, label="Adv", color='black')
-	ax1.plot(phi, PPV_A, label="PPV", color='black')
+	ax1.plot(phi, Adv_A, label="Adv", color='green')
+	ax1.plot(phi, PPV_A, label="PPV", color='orange')
 	ax2 = ax1.twinx()
 	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
 	if method == 'yeom':
@@ -161,7 +161,7 @@ def plot_accuracy(result):
 		train_accs[run] = train_acc				
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-    	color = 0.1
+	color = 0.1
 	y = dict()
 	for dp in DP:
 		test_acc_vec = np.zeros((A, B))
@@ -199,9 +199,9 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 		m, nm = get_zeros(membership, counts)
 		mi_2_zero_m.append(m)
 		mi_2_zero_nm.append(nm)
-		plot_histogram(per_instance_loss)
+		#plot_histogram(per_instance_loss)
 		plot_distributions(per_instance_loss, membership, method='yeom')
-		plot_sign_histogram(membership, counts, 100)
+		#plot_sign_histogram(membership, counts, 100)
 		plot_distributions(counts, membership, method='merlin')
 		# As used below, method == 'yeom' runs a Yeom attack but finds a better threshold than is used in the original Yeom attack.
 		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 	parser.add_argument('dataset', type=str)
 	parser.add_argument('--model', type=str, default='nn')
 	parser.add_argument('--l2_ratio', type=str, default='1e-08')
-	parser.add_argument('--gamma', type=int, default=1)
+	parser.add_argument('--gamma', type=float, default=1.0)
 	parser.add_argument('--alpha', type=float, default=None)
 	parser.add_argument('--per_class_thresh', type=int, default=0)
 	parser.add_argument('--fixed_thresh', type=int, default=0)
@@ -235,11 +235,11 @@ if __name__ == '__main__':
 
 	gamma = args.gamma
 	alpha = args.alpha
-	DATA_PATH = '../results/' + str(args.dataset)
+	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.plot == 'acc':
 		plot_accuracy(result)
 	else:
-		plot_privacy_leakage(result, eps)
+		plot_privacy_leakage(result, args.eps)
