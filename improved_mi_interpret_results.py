@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import argparse
 
+
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
@@ -12,7 +13,7 @@ PERTURBATION = 'grad_pert_'
 DP = ['gdp_', 'rdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
-RUNS = range(5)
+RUNS = range(1)
 A, B = len(EPSILONS), len(RUNS)
 ALPHAS = np.arange(0.01, 1, 0.01)
 delta = 1e-5
@@ -161,7 +162,7 @@ def plot_accuracy(result):
 		train_accs[run] = train_acc				
 	baseline_acc = np.mean(baseline_acc)
 	print(np.mean(train_accs), baseline_acc)
-    	color = 0.1
+	color = 0.1
 	y = dict()
 	for dp in DP:
 		test_acc_vec = np.zeros((A, B))
@@ -219,6 +220,46 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	print('\nProposed MI 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_1), np.std(thresh_p_mi_1), np.mean(fpr_p_mi_1), np.std(fpr_p_mi_1), np.mean(adv_p_mi_1+fpr_p_mi_1), np.std(adv_p_mi_1+fpr_p_mi_1), np.mean(adv_p_mi_1), np.std(adv_p_mi_1), np.mean(ppv_p_mi_1), np.std(ppv_p_mi_1)))
 	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))				
 
+
+def attackplot(result):
+	_, mem, per_instance_loss, _, _, proposed_mi_outputs = result
+	_, _, _, _, _, counts = proposed_mi_outputs
+	axes = np.vstack((per_instance_loss, counts))
+	axes = np.vstack((mem, axes))
+	axes = np.transpose(axes)
+	axes = axes[np.argsort(axes[:,1])]
+
+	plt.scatter(axes[:,1], axes[:,2], s=np.pi*3, c=(0,0,0), alpha=0.5)
+	plt.title("Attack Comparison")
+	plt.xlabel("Yeom (per_instance_loss)")
+	plt.ylabel("Merlin (counts)")
+	plt.show()
+
+
+def scatterplot(result):
+	for run in RUNS:
+		_, mem, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+		_, _, _, _, _, counts = proposed_mi_outputs
+		axes = np.vstack((per_instance_loss, counts))
+		axes = np.vstack((mem, axes))
+		axes = np.transpose(axes)
+		m_axes = axes[:10000, :]
+		nm_axes = axes[10000:, :]
+		axes = axes[np.argsort(axes[:, 1])]
+
+		if args.mem == 'nm':
+			plt.scatter(nm_axes[:, 1], nm_axes[:, 2], s=np.pi * 3, c='purple', alpha=0.2)
+		elif args.mem == 'm':
+			plt.scatter(m_axes[:, 1], m_axes[:, 2], s=np.pi * 3, c='yellow', alpha=0.2)
+		else:
+			plt.scatter(axes[:, 1], axes[:, 2], s=np.pi * 3, c=axes[:, 0], alpha=0.2)
+		plt.xscale('log')
+		plt.xticks([10 ** -6, 10 ** -4, 10 ** -2, 10 ** 0])
+		plt.title("Attack Comparison")
+		plt.xlabel("Yeom (per_instance_loss)")
+		plt.ylabel("Merlin (counts)")
+		plt.show()
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
@@ -230,16 +271,25 @@ if __name__ == '__main__':
 	parser.add_argument('--fixed_thresh', type=int, default=0)
 	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--eps', type=float, default=None)
+	parser.add_argument('--mem', type=str, default='all')
 	args = parser.parse_args()
 	print(vars(args))
 
 	gamma = args.gamma
 	alpha = args.alpha
-	DATA_PATH = '../results/' + str(args.dataset)
+	DATA_PATH = './results/' + str(args.dataset) + '/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.plot == 'acc':
 		plot_accuracy(result)
+	elif args.plot == 'attack':
+		attackplot(result)
+	elif args.plot == 'scatter':
+		new_rc_params = {
+			'text.usetex': False,
+		}
+		plt.rcParams.update(new_rc_params)
+		scatterplot(result)
 	else:
 		plot_privacy_leakage(result, eps)
