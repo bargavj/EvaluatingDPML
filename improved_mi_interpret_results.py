@@ -217,7 +217,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
 	parser.add_argument('--model', type=str, default='nn')
-	parser.add_argument('--l2_ratio', type=str, default='1e-08')
+	parser.add_argument('--l2_ratio', type=float, default=1e-8)
 	parser.add_argument('--gamma', type=float, default=1.0)
 	parser.add_argument('--alpha', type=float, default=None)
 	parser.add_argument('--per_class_thresh', type=int, default=0)
