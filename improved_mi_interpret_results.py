@@ -13,7 +13,7 @@ PERTURBATION = 'grad_pert_'
 DP = ['gdp_', 'rdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
-RUNS = range(1)
+RUNS = range(5)
 A, B = len(EPSILONS), len(RUNS)
 ALPHAS = np.arange(0.01, 1, 0.01)
 delta = 1e-5
@@ -221,21 +221,6 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	print('\nProposed MI 2:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_p_mi_2), np.std(thresh_p_mi_2), np.mean(fpr_p_mi_2), np.std(fpr_p_mi_2), np.mean(adv_p_mi_2+fpr_p_mi_2), np.std(adv_p_mi_2+fpr_p_mi_2), np.mean(adv_p_mi_2), np.std(adv_p_mi_2), np.mean(ppv_p_mi_2), np.std(ppv_p_mi_2)))				
 
 
-def attackplot(result):
-	_, mem, per_instance_loss, _, _, proposed_mi_outputs = result
-	_, _, _, _, _, counts = proposed_mi_outputs
-	axes = np.vstack((per_instance_loss, counts))
-	axes = np.vstack((mem, axes))
-	axes = np.transpose(axes)
-	axes = axes[np.argsort(axes[:,1])]
-
-	plt.scatter(axes[:,1], axes[:,2], s=np.pi*3, c=(0,0,0), alpha=0.5)
-	plt.title("Attack Comparison")
-	plt.xlabel("Yeom (per_instance_loss)")
-	plt.ylabel("Merlin (counts)")
-	plt.show()
-
-
 def scatterplot(result):
 	for run in RUNS:
 		_, mem, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
@@ -283,8 +268,6 @@ if __name__ == '__main__':
 	result = get_data()
 	if args.plot == 'acc':
 		plot_accuracy(result)
-	elif args.plot == 'attack':
-		attackplot(result)
 	elif args.plot == 'scatter':
 		new_rc_params = {
 			'text.usetex': False,
