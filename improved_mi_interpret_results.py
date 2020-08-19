@@ -141,16 +141,10 @@ def plot_distributions(pred_vector, true_vector, method='yeom'):
 	plt.show()
 
 def get_zeros(mem, vect):
-	m, nm = 0, 0
-	for i, val in enumerate(vect):
-		if val == 0:
-			if mem[i] == 1:
-				m += 1
-			else:
-				nm += 1
+	mem_zeros = list(filter(lambda mem[i]: vect[i] == 0, list(range(len(mem)))))
 	#print(np.mean(vect[:10000]), np.std(vect[:10000]))
 	#print(np.mean(vect[10000:]), np.std(vect[10000:]))
-	return m, nm
+	return np.sum(mem_zeros), len(mem_zeros) - np.sum(mem_zeros) 
 
 def plot_accuracy(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
