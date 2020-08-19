@@ -248,7 +248,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
 	parser.add_argument('--model', type=str, default='nn')
-	parser.add_argument('--l2_ratio', type=str, default='1e-5')
+	parser.add_argument('--l2_ratio', type=float, default=1e-5)
 	parser.add_argument('--function', type=int, default=1)
 	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--fpr_threshold', type=float, default=0.01)
