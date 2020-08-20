@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import argparse
 
+
 EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 1.0, 10.0, 100.0]
@@ -213,6 +214,30 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	print('\nYeom:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_yeom), np.std(thresh_yeom), np.mean(fpr_yeom), np.std(fpr_yeom), np.mean(adv_yeom+fpr_yeom), np.std(adv_yeom+fpr_yeom), np.mean(adv_yeom), np.std(adv_yeom), np.mean(ppv_yeom), np.std(ppv_yeom)))
 	print('\nMerlin:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_merlin), np.std(thresh_merlin), np.mean(fpr_merlin), np.std(fpr_merlin), np.mean(adv_merlin+fpr_merlin), np.std(adv_merlin+fpr_merlin), np.mean(adv_merlin), np.std(adv_merlin), np.mean(ppv_merlin), np.std(ppv_merlin)))				
 
+def scatterplot(result):
+	for run in RUNS:
+		_, mem, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+		_, _, _, _, _, counts = proposed_mi_outputs
+		axes = np.vstack((per_instance_loss, counts))
+		axes = np.vstack((mem, axes))
+		axes = np.transpose(axes)
+		m_axes = axes[:10000, :]
+		nm_axes = axes[10000:, :]
+		axes = axes[np.argsort(axes[:, 1])]
+
+		if args.mem == 'nm':
+			plt.scatter(nm_axes[:, 1], nm_axes[:, 2], s=np.pi * 3, c='purple', alpha=0.2)
+		elif args.mem == 'm':
+			plt.scatter(m_axes[:, 1], m_axes[:, 2], s=np.pi * 3, c='yellow', alpha=0.2)
+		else:
+			plt.scatter(axes[:, 1], axes[:, 2], s=np.pi * 3, c=axes[:, 0], alpha=0.2)
+		plt.xscale('log')
+		plt.xticks([10 ** -6, 10 ** -4, 10 ** -2, 10 ** 0])
+		plt.title("Attack Comparison")
+		plt.xlabel("Yeom (per_instance_loss)")
+		plt.ylabel("Merlin (counts)")
+		plt.show()
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('dataset', type=str)
@@ -224,16 +249,23 @@ if __name__ == '__main__':
 	parser.add_argument('--fixed_thresh', type=int, default=0)
 	parser.add_argument('--plot', type=str, default='acc')
 	parser.add_argument('--eps', type=float, default=None)
+	parser.add_argument('--mem', type=str, default='all')
 	args = parser.parse_args()
 	print(vars(args))
 
 	gamma = args.gamma
 	alpha = args.alpha
-	DATA_PATH = 'results/' + str(args.dataset) + '_improved_mi/'
+	DATA_PATH = './results/' + str(args.dataset) + '/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.plot == 'acc':
 		plot_accuracy(result)
+	elif args.plot == 'scatter':
+		new_rc_params = {
+			'text.usetex': False,
+		}
+		plt.rcParams.update(new_rc_params)
+		scatterplot(result)
 	else:
 		plot_privacy_leakage(result, args.eps)
