@@ -187,7 +187,7 @@ def save_data(args):
     assert(len(x) >= (1 + gamma) * target_size)
     x, train_x, y, train_y = train_test_split(x, y, test_size=target_size, stratify=y)
     print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
-    x, test_x, y, test_y = train_test_split(x, y, test_size=gamma*target_size, stratify=y)
+    x, test_x, y, test_y = train_test_split(x, y, test_size=int(gamma*target_size), stratify=y)
     print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
 
     # save target data
@@ -200,7 +200,7 @@ def save_data(args):
     # save shadow data
     for i in range(args.n_shadow):
         print('Saving data for shadow model {}'.format(i))
-        train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=gamma*target_size, stratify=y)
+        train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=int(gamma*target_size), stratify=y)
         print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
         print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
         np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
@@ -218,7 +218,7 @@ def load_data(data_name, args):
     train_y = np.array(train_y, dtype=np.int32)
     test_y = np.array(test_y, dtype=np.int32)
 
-    return train_x, train_y, test_x[:gamma*target_size], test_y[:gamma*target_size]
+    return train_x, train_y, test_x[:int(gamma*target_size)], test_y[:int(gamma*target_size)]
 
 
 def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
