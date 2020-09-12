@@ -10,7 +10,7 @@ EPS = list(np.arange(0.1, 100, 0.01))
 EPS2 = list(np.arange(0.1, 100, 0.01))
 EPSILONS = [0.1, 1.0, 10.0, 100.0]
 PERTURBATION = 'grad_pert_'
-DP = ['gdp_', 'rdp_']
+DP = ['gdp_']
 TYPE = ['o-', '.-']
 DP_LABELS = ['GDP', 'RDP']
 RUNS = range(5)
@@ -18,8 +18,10 @@ A, B = len(EPSILONS), len(RUNS)
 ALPHAS = np.arange(0.01, 1, 0.01)
 delta = 1e-5
 
+frame = plt.rcParams['figure.figsize']
 new_rc_params = {
-	'font.size': 18,
+	'figure.figsize': [frame[0], 0.8*frame[1]],
+	'font.size': 22, # 18 (20) default, changed to 22
 	'text.usetex': True,
 	'font.family': 'Times New Roman',
 	'mathtext.fontset': 'stix',
@@ -119,33 +121,39 @@ def plot_distributions(pred_vector, true_vector, method='yeom'):
 	fig, ax1 = plt.subplots()
 	if method == 'yeom':
 		phi, fpr, Adv_A, PPV_A = phi[:-1], fpr[:-1], Adv_A[:-1], PPV_A[:-1]
-	ax1.plot(phi, Adv_A, label="Adv", color='green')
-	ax1.plot(phi, PPV_A, label="PPV", color='orange')
-	ax2 = ax1.twinx()
-	ax2.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
+	else:
+		phi = phi / 100
+	ax1.plot(phi, Adv_A, label="Adv", color='black')
+	ax1.plot(phi, PPV_A, label="PPV", color='black')
+	#ax2 = ax1.twinx()
+	ax1.plot(phi, fpr, label="FPR", color='black', linestyle='dashed')
 	if method == 'yeom':
 		ax1.set_xscale('log')
-		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-5,10), ha='right')
-		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-20,20), ha='left')
-		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-20,-10), ha='right')
+		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-15, -10), ha='right')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, -50), textcoords="offset points", xytext=(-40, 20), ha='left')
+		ax1.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, 0), textcoords="offset points", xytext=(-20, -20), ha='right')
+		#ax1.set_xticks([10**-6, 10**-4, 10**-2, 10**0])
+		ax1.set_xticks([10**-2, 10**-1, 10**0, 10**1]) # used for cifar-100
 	else:
-		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-20,0), ha='right')
-		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, 5), textcoords="offset points", xytext=(-10,10), ha='right')
-		ax2.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -5), textcoords="offset points", xytext=(0,-30), ha='left')
-		ax1.set_xticks(np.arange(0, 101, step=20))
+		ax1.annotate('$Adv_\mathcal{A}$', pretty_position(phi, Adv_A, np.argmax(Adv_A)), textcoords="offset points", xytext=(-15, 0), ha='right')
+		ax1.annotate('$PPV_\mathcal{A}$', pretty_position(phi, PPV_A, 5), textcoords="offset points", xytext=(-10, -10), ha='right')
+		ax1.annotate('FPR ($\\alpha$)', pretty_position(phi, fpr, -5), textcoords="offset points", xytext=(-40, -25), ha='left')
+		ax1.set_xticks(np.arange(0, 1.1, step=0.2))
+		ax1.set_xlim(0, 1)
 	ax1.set_xlabel('Decision Function $\phi$')
 	ax1.set_ylabel('Privacy Leakage Metrics')
-	ax2.set_ylabel('False Positive Rate')
+	#ax2.set_ylabel('False Positive Rate')
 	ax1.set_yticks(np.arange(0, 1.1, step=0.2))
-	ax2.set_yticks(np.arange(0, 1.1, step=0.2))
+	ax1.set_ylim(0, 1)
+	#ax2.set_yticks(np.arange(0, 1.1, step=0.2))
 	fig.tight_layout()
 	plt.show()
 
 def get_zeros(mem, vect):
-	mem_zeros = list(filter(lambda mem[i]: vect[i] == 0, list(range(len(mem)))))
+	ind = list(filter(lambda i: vect[i] == 0, list(range(len(vect)))))
 	#print(np.mean(vect[:10000]), np.std(vect[:10000]))
 	#print(np.mean(vect[10000:]), np.std(vect[10000:]))
-	return np.sum(mem_zeros), len(mem_zeros) - np.sum(mem_zeros) 
+	return np.sum(mem[ind]), len(mem[ind]) - np.sum(mem[ind]) 
 
 def plot_accuracy(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
@@ -172,8 +180,9 @@ def plot_accuracy(result):
 	plt.xlabel('Privacy Budget ($\epsilon$)')	
 	plt.ylabel('Accuracy Loss')
 	plt.yticks(np.arange(0, 1.1, step=0.2))
-	plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 2), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
-	plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 2), textcoords="offset points", xytext=(-20, -10), ha='right', color=str(0.1))
+	plt.xticks(EPSILONS)
+	plt.annotate("RDP", pretty_position(EPSILONS, y["rdp_"], 1), textcoords="offset points", xytext=(20, 10), ha='right', color=str(0.3))
+	plt.annotate("GDP", pretty_position(EPSILONS, y["gdp_"], 1), textcoords="offset points", xytext=(-50, -10), ha='right', color=str(0.1))
 	plt.tight_layout()
 	plt.show()
 
@@ -194,7 +203,7 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 		merlin_zero_m.append(m)
 		merlin_zero_nm.append(nm)
 		#plot_histogram(per_instance_loss)
-		plot_distributions(per_instance_loss, membership, method='yeom')
+		#plot_distributions(per_instance_loss, membership, method='yeom')
 		#plot_sign_histogram(membership, counts, 100)
 		plot_distributions(counts, membership, method='merlin')
 		# As used below, method == 'yeom' runs a Yeom attack but finds a better threshold than is used in the original Yeom attack.
@@ -215,28 +224,64 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	print('\nMerlin:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_merlin), np.std(thresh_merlin), np.mean(fpr_merlin), np.std(fpr_merlin), np.mean(adv_merlin+fpr_merlin), np.std(adv_merlin+fpr_merlin), np.mean(adv_merlin), np.std(adv_merlin), np.mean(ppv_merlin), np.std(ppv_merlin)))				
 
 def scatterplot(result):
+	morgan(result)
 	for run in RUNS:
-		_, mem, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+		if args.eps == None:
+			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+		else:
+			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
 		_, _, _, _, _, counts = proposed_mi_outputs
+		counts /= 100
 		axes = np.vstack((per_instance_loss, counts))
-		axes = np.vstack((mem, axes))
+		axes = np.vstack((membership, axes))
 		axes = np.transpose(axes)
 		m_axes = axes[:10000, :]
 		nm_axes = axes[10000:, :]
 		axes = axes[np.argsort(axes[:, 1])]
+		colors = np.array(['purple', 'orange'])
 
 		if args.mem == 'nm':
 			plt.scatter(nm_axes[:, 1], nm_axes[:, 2], s=np.pi * 3, c='purple', alpha=0.2)
 		elif args.mem == 'm':
-			plt.scatter(m_axes[:, 1], m_axes[:, 2], s=np.pi * 3, c='yellow', alpha=0.2)
+			plt.scatter(m_axes[:, 1], m_axes[:, 2], s=np.pi * 3, c='orange', alpha=0.2)
 		else:
-			plt.scatter(axes[:, 1], axes[:, 2], s=np.pi * 3, c=axes[:, 0], alpha=0.2)
+			plt.scatter(axes[:, 1], axes[:, 2], s=np.pi * 3, c=list(colors[list(map(lambda x:int(x), axes[:, 0]))]), alpha=0.2)
+		# phi_l is lower threshold on loss
+		# phi_u is upper threshold on loss
+		# phi_m is threshold on merlin ratio
+		phi_l, phi_u, phi_m = 0.0001, 0.0015, 0.95
+		plt.plot([phi_l, phi_u], [phi_m, phi_m], c='k')
+		plt.plot([phi_l, phi_l], [phi_m, 1], c='k')
+		plt.plot([phi_u, phi_u], [phi_m, 1], c='k')
 		plt.xscale('log')
-		plt.xticks([10 ** -6, 10 ** -4, 10 ** -2, 10 ** 0])
-		plt.title("Attack Comparison")
-		plt.xlabel("Yeom (per_instance_loss)")
-		plt.ylabel("Merlin (counts)")
+		plt.xticks([10 ** -8, 10 ** -6, 10 ** -4, 10 ** -2, 10 ** 0, 10 **2])
+		plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+		plt.ylim(0,1)
+		plt.xlabel('Per-Instance Loss')
+		plt.ylabel('Merlin Ratio')
+		plt.tight_layout()
 		plt.show()
+
+def morgan(result):
+	phi_l, phi_u, phi_m, fpr_morgan, adv_morgan, ppv_morgan = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
+	alpha_l = 0.22 # alpha value used to tune lower loss threshold
+	alpha_u = 0.3 # alpha value used to tune upper loss threshold
+	for run in RUNS:
+		if args.eps == None:
+			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+		else:
+			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
+		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+		low_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_l, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		high_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_u, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		merlin_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		pred_1 = np.where(per_instance_loss >= low_thresh, 1, 0)
+		pred_2 = np.where(per_instance_loss <= high_thresh, 1, 0)
+		pred_3 = np.where(counts >= merlin_thresh, 1, 0)
+		pred = pred_1 & pred_2 & pred_3
+		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
+		phi_l[run], phi_u[run], phi_m[run], fpr_morgan[run], adv_morgan[run], ppv_morgan[run] = low_thresh, high_thresh, merlin_thresh, fp / (gamma * 10000), adv, ppv
+	print('\nMorgan:\nphi: (%f +/- %f, %f +/- %f, %f +/- %f)\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(phi_l), np.std(phi_l), np.mean(phi_u), np.std(phi_u), np.mean(phi_m), np.std(phi_m), np.mean(fpr_morgan), np.std(fpr_morgan), np.mean(adv_morgan+fpr_morgan), np.std(adv_morgan+fpr_morgan), np.mean(adv_morgan), np.std(adv_morgan), np.mean(ppv_morgan), np.std(ppv_morgan)))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -255,17 +300,13 @@ if __name__ == '__main__':
 
 	gamma = args.gamma
 	alpha = args.alpha
-	DATA_PATH = './results/' + str(args.dataset) + '/'
+	DATA_PATH = './results/' + str(args.dataset) + '_improved_mi/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
 	result = get_data()
 	if args.plot == 'acc':
 		plot_accuracy(result)
 	elif args.plot == 'scatter':
-		new_rc_params = {
-			'text.usetex': False,
-		}
-		plt.rcParams.update(new_rc_params)
 		scatterplot(result)
 	else:
 		plot_privacy_leakage(result, args.eps)

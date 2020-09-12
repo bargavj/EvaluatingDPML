@@ -29,8 +29,10 @@ echo "Filling data/ directory"
 python $CODE $DATASET --save_data=1 --target_clipping_threshold=4 --target_test_train_ratio=10
 
 echo "Beginning experiment"
-# For Texas-100, set GAMMA in 1 2, --target_epochs=30
-# For RCV1, set --target_clipping_threshold=1, --target_learning_rate=0.003, --target_epochs=80
+# For Purchase-100, set GAMMA in 0.1 0.5 1 2 10, --target_clipping_threshold=4, --target_epochs=100, --target_learning_rate=0.005, --target_l2_ratio=1e-8
+# For Texas-100, set GAMMA in 0.1 0.5 1 2, --target_clipping_threshold=4, --target_epochs=30, --target_learning_rate=0.005, --target_l2_ratio=1e-8
+# For RCV1, set GAMMA in 0.1 0.5 1 2 10, --target_clipping_threshold=1, --target_epochs=80, --target_learning_rate=0.003, --target_l2_ratio=1e-8
+# For CIFAR-100, set GAMMA in 0.1 0.5 1 2, --target_clipping_threshold=4, --target_epochs=100, --target_learning_rate=0.001, --target_l2_ratio=1e-4
 for GAMMA in 0.1 0.5 1 2 10
 do
     for RUN in 1 2 3 4 5

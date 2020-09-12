@@ -30,6 +30,20 @@ def get_model(features, labels, mode, params):
         y = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(input_layer)
         y = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
         logits = tf.keras.layers.Dense(n_out, activation=tf.nn.softmax, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
+    elif model == 'cnn':
+        #print('Using convolution neural network...') # use only on Cifar-100
+        input_layer = tf.reshape(features['x'], [-1, 32, 32, 3])
+        y = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation=non_linearity).apply(input_layer)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
+        y = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3]).apply(y)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
+        y = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3]).apply(y)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
+        y = tf.keras.layers.Flatten().apply(y)
+        y = tf.nn.dropout(y, 0.2)
+        y = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
+        y = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
+        logits = tf.keras.layers.Dense(n_out, activation=tf.nn.softmax, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
     else:
         #print('Using softmax regression...')
         input_layer = tf.reshape(features['x'], [-1, n_in])
