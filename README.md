@@ -63,6 +63,7 @@ Run `improved_mi_interpret_results.py $dataset --l2_ratio=$lambda` to obtain the
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
     - 'priv' prints the privacy leakage plots and table values
+    - 'scatterplot' runs the Morgan attack and plots the scatter plot of loss and Merlin ratio
 - `--gamma` specifies the gamma value to be used for the results: 1, 2 or 10
 - `--alpha` specifies the alpha threshold to be used to get the corresponding attack threshold: between 0 and 1
 - `--per_class_thresh` specifies whether to use per class threshold (1) or not (0 - default)
