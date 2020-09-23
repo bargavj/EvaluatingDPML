@@ -1,4 +1,4 @@
-# Analysing the Leaky Cauldron
+# Analyzing the Leaky Cauldron
 
 The goal of this project is to evaluate the privacy leakage of differential private machine learning algorithms.
 
