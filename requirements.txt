@@ -3,4 +3,4 @@ numpy==1.17.2
 git+git://github.com/tensorflow/privacy@master
 scipy==1.4.1
 scikit_learn==0.21.3
-tensorflow==2.1.2
+tensorflow>=2.4.0
