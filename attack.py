@@ -74,7 +74,7 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
     return attack_x, attack_y, classes, classifier, aux
 
 
-def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', save=True):
+def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
     attack_x, attack_y = [], []
     classes = []
     for i in range(n_shadow):
@@ -83,7 +83,7 @@ def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rat
         train_x, train_y, test_x, test_y = dataset
 
         # train model
-        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
         #print('Gather training data for attack model')
         attack_i_x, attack_i_y = [], []
 
@@ -137,10 +137,10 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     test_indices = np.arange(len(test_x))
     unique_classes = np.unique(train_classes)
 
-    true_y = []
     pred_y = []
-    pred_scores = []
-    true_x = []
+    shadow_membership, target_membership = [], []
+    shadow_pred_scores, target_pred_scores = [], []
+    shadow_class_labels, target_class_labels = [], []
     for c in unique_classes:
         #print('Training attack model for class {}...'.format(c))
         c_train_indices = train_indices[train_classes == c]
@@ -149,26 +149,40 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         c_test_x, c_test_y = test_x[c_test_indices], test_y[c_test_indices]
         c_dataset = (c_train_x, c_train_y, c_test_x, c_test_y)
         classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        
+        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+            x={'x': c_train_x},
+            num_epochs=1,
+            shuffle=False)
+        predictions = classifier.predict(input_fn=pred_input_fn)
+        c_pred_y, c_pred_scores = get_predictions(predictions)
+        shadow_membership.append(c_train_y)
+        shadow_pred_scores.append(c_pred_scores)
+        shadow_class_labels.append([c]*len(c_train_indices))
+
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': c_test_x},
             num_epochs=1,
             shuffle=False)
         predictions = classifier.predict(input_fn=pred_input_fn)
         c_pred_y, c_pred_scores = get_predictions(predictions)
-        true_y.append(c_test_y)
         pred_y.append(c_pred_y)
-        true_x.append(c_test_x)
-        pred_scores.append(c_pred_scores)
+        target_membership.append(c_test_y)
+        target_pred_scores.append(c_pred_scores)
+        target_class_labels.append([c]*len(c_test_indices))
 
     print('-' * 10 + 'FINAL EVALUATION' + '-' * 10 + '\n')
-    true_y = np.concatenate(true_y)
+    shadow_membership = np.concatenate(shadow_membership)
+    target_membership = np.concatenate(target_membership)
     pred_y = np.concatenate(pred_y)
-    true_x = np.concatenate(true_x)
-    pred_scores = np.concatenate(pred_scores)
-    prety_print_result(true_y, pred_y)
-    fpr, tpr, thresholds = roc_curve(true_y, pred_y, pos_label=1)
+    shadow_pred_scores = np.concatenate(shadow_pred_scores)
+    target_pred_scores = np.concatenate(target_pred_scores)
+    shadow_class_labels = np.concatenate(shadow_class_labels)
+    target_class_labels = np.concatenate(target_class_labels)
+    prety_print_result(target_membership, pred_y)
+    fpr, tpr, thresholds = roc_curve(target_membership, pred_y, pos_label=1)
     attack_adv = tpr[1] - fpr[1]
-    return (attack_adv, pred_scores)
+    return (attack_adv, shadow_pred_scores, target_pred_scores, shadow_membership, target_membership, shadow_class_labels, target_class_labels)
 
 
 def save_data(args):

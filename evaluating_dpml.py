@@ -46,7 +46,8 @@ def run_experiment(args):
     yeom_mem_adv = tpr[1] - fpr[1]
 
     # Shokri's membership inference attack based on shadow model training
-    shokri_mem_adv, shokri_mem_confidence = shokri_membership_inference(args, pred_y, membership, test_classes)
+    shokri_mi_outputs = shokri_membership_inference(args, pred_y, membership, test_classes)
+    shokri_mem_adv, _, shokri_mem_confidence, _, _, _, _ = shokri_mi_outputs
 
     # Yeom's attribute inference attack when train_loss is known - Adversary 4 of Yeom et al.
     pred_membership_all = yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss)

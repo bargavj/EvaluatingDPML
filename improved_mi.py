@@ -1,4 +1,4 @@
-from attack import save_data, load_data, train_target_model, yeom_membership_inference, proposed_membership_inference, evaluate_proposed_membership_inference
+from attack import save_data, load_data, train_target_model, yeom_membership_inference, shokri_membership_inference, proposed_membership_inference, evaluate_proposed_membership_inference
 from utilities import log_loss, get_random_features
 import numpy as np
 import argparse
@@ -42,18 +42,21 @@ def run_experiment(args):
     # Yeom's membership inference attack when both train_loss and test_loss are known - Adversary 2 of Yeom et al.
     yeom_mi_outputs_2 = yeom_membership_inference(per_instance_loss, membership, train_loss, test_loss)
 
+    # Shokri's membership inference attack
+    shokri_mi_outputs = shokri_membership_inference(args, pred_y, membership, test_classes)
+
     # Proposed membership inference attacks
     proposed_mi_outputs = proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_instance_loss, args)
     evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01)
     evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=0.01, per_class_thresh=True)
 
-    if not os.path.exists(RESULT_PATH+args.train_dataset):
-        os.makedirs(RESULT_PATH+args.train_dataset)
+    if not os.path.exists(RESULT_PATH+args.train_dataset+'shokri'):
+        os.makedirs(RESULT_PATH+args.train_dataset+'shokri')
     
     if args.target_privacy == 'no_privacy':
-        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'shokri'+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
     else:
-        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'shokri'+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
