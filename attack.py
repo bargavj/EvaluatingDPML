@@ -172,9 +172,9 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         target_class_labels.append([c]*len(c_test_indices))
 
     print('-' * 10 + 'FINAL EVALUATION' + '-' * 10 + '\n')
+    pred_y = np.concatenate(pred_y)
     shadow_membership = np.concatenate(shadow_membership)
     target_membership = np.concatenate(target_membership)
-    pred_y = np.concatenate(pred_y)
     shadow_pred_scores = np.concatenate(shadow_pred_scores)
     target_pred_scores = np.concatenate(target_pred_scores)
     shadow_class_labels = np.concatenate(shadow_class_labels)
