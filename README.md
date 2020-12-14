@@ -6,7 +6,7 @@ The code has been adapted from the [code base](https://github.com/csong27/member
 
 Below we describe the procedure to run the experiments for the following projects:
 * [Evaluating Differentially Private Machine Learning in Practice](#evaluating-differentially-private-machine-learning-in-practice)
-* [Revisiting Membership Inference under Realistic Assumptions](#revisiting-membership-inference-under-realistic-assumptions)
+* [Revisiting Membership Inference Under Realistic Assumptions](#revisiting-membership-inference-under-realistic-assumptions)
 
 
 ### Requirements
@@ -55,9 +55,9 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
 - `--venn` plots the venn diagram of members identified by MI attack across two runs when set to 1, otherwise it does not plot when set to 0 (default). This functionality works only when `--function=3`
 
 
-## Revisiting Membership Inference under Realistic Assumptions
+## Revisiting Membership Inference Under Realistic Assumptions
 
-To replicate the results of the paper [*Revisiting Membership Inference under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
+To replicate the results of the paper [*Revisiting Membership Inference Under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
 
 Run `improved_mi_interpret_results.py $dataset --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--plot` specifies the type of plot to be printed
