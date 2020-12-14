@@ -24,7 +24,7 @@ pip install matplotlib
 pip install git+git://github.com/tensorflow/privacy@master
 
 echo "Filling data/ directory"
-# For Texas-100, set --target_test_train_ratio=2, 
+# For Texas-100 and CIFAR-100, set --target_test_train_ratio=2 
 # For RCV1, set --target_clipping_threshold=1
 python $CODE $DATASET --save_data=1 --target_clipping_threshold=4 --target_test_train_ratio=10
 
