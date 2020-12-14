@@ -63,10 +63,12 @@ def get_data():
 def pretty_position(X, Y, pos):
 	return ((X[pos] + X[pos+1]) / 2, (Y[pos] + Y[pos+1]) / 2)
 
-def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=None, per_class_thresh=False, fixed_thresh=False):
+def get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='yeom', fpr_threshold=None, per_class_thresh=False, fixed_thresh=False):
 	# method == "yeom" runs an improved version of the Yeom attack that finds a better threshold than the original
+	# method == "shokri" runs an improved version of the Shokri attack that finds a better threshold than the original
 	# method == "merlin" runs a new attack, which uses the direction of the change in per-instance loss for the record
 	true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
+	shokri_adv, shadow_pred_scores, target_pred_scores, shadow_membership, target_membership, shadow_class_labels, target_class_labels = shokri_mi_outputs
 	if method == 'yeom':
 		if per_class_thresh:
 			classes = np.unique(true_y)
@@ -90,6 +92,27 @@ def get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_t
 		else:
 			thresh = -get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
 			return max(0, thresh), np.where(per_instance_loss <= thresh, 1, 0)
+	elif method == 'shokri':
+		if fixed_thresh:
+			return 0.5, np.where(target_pred_scores[:,1] >= 0.5, 1, 0)
+		if per_class_thresh:
+			classes = np.unique(shadow_class_labels)
+			pred_membership = np.zeros(len(target_membership))
+			threshs = []
+			for c in classes:
+				target_indices = np.arange(len(target_class_labels))[target_class_labels == c]
+				shadow_indices = np.arange(len(shadow_class_labels))[shadow_class_labels == c]
+				thresh = get_inference_threshold(shadow_pred_scores[shadow_indices,1], shadow_membership[shadow_indices], fpr_threshold)
+				pred_membership[target_indices] = np.where(target_pred_scores[target_indices,1] >= thresh, 1, 0)
+				threshs.append(thresh)
+			print(min(threshs), np.median(threshs), max(threshs))
+			#plt.plot(list(range(1, 101)), threshs)
+			#plt.ylim(0, 1)
+			#plt.show()
+			return threshs[0], pred_membership
+		else:
+			thresh = get_inference_threshold(shadow_pred_scores[:,1], shadow_membership, fpr_threshold)
+			return thresh, np.where(target_pred_scores[:,1] >= thresh, 1, 0)
 	else:  # In this case, run the Merlin attack.
 		if per_class_thresh:
 			classes = np.unique(true_y)
@@ -158,7 +181,7 @@ def get_zeros(mem, vect):
 def plot_accuracy(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	for run in RUNS:
-		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run]
+		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs = result['no_privacy'][run]
 		train_loss, train_acc, test_loss, test_acc = aux
 		baseline_acc[run] = test_acc
 		train_accs[run] = train_acc				
@@ -170,7 +193,7 @@ def plot_accuracy(result):
 		test_acc_vec = np.zeros((A, B))
 		for a, eps in enumerate(EPSILONS):
 			for run in RUNS:
-				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result[dp][eps][run]
+				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
 				test_acc_vec[a, run] = test_acc			
 		y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
@@ -187,14 +210,15 @@ def plot_accuracy(result):
 	plt.show()
 
 def plot_privacy_leakage(result, eps=None, dp='gdp_'):
-	adv_yeom_vanilla_1, adv_yeom, adv_merlin = np.zeros(B), np.zeros(B), np.zeros(B)
-	ppv_yeom_vanilla_1, ppv_yeom, ppv_merlin = np.zeros(B), np.zeros(B), np.zeros(B)
-	fpr_yeom_vanilla_1, fpr_yeom, fpr_merlin = np.zeros(B), np.zeros(B), np.zeros(B)
-	thresh_yeom_vanilla_1, thresh_yeom, thresh_merlin = np.zeros(B), np.zeros(B), np.zeros(B)
+	adv_yeom_vanilla_1, adv_yeom, adv_shokri, adv_merlin = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
+	ppv_yeom_vanilla_1, ppv_yeom, ppv_shokri, ppv_merlin = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
+	fpr_yeom_vanilla_1, fpr_yeom, fpr_shokri, fpr_merlin = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
+	thresh_yeom_vanilla_1, thresh_yeom, thresh_shokri, thresh_merlin = np.zeros(B), np.zeros(B), np.zeros(B), np.zeros(B)
 	yeom_zero_m, yeom_zero_nm, merlin_zero_m, merlin_zero_nm = [], [], [], []
 	for run in RUNS:
-		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, proposed_mi_outputs = result['no_privacy'][run] if not eps else result[dp][eps][run]
+		aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs = result['no_privacy'][run] if not eps else result[dp][eps][run]
 		train_loss, train_acc, test_loss, test_acc = aux
+		shokri_adv, shadow_pred_scores, target_pred_scores, shadow_membership, target_membership, shadow_class_labels, target_class_labels = shokri_mi_outputs
 		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 		m, nm = get_zeros(membership, per_instance_loss)
 		yeom_zero_m.append(m)
@@ -207,11 +231,15 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 		#plot_sign_histogram(membership, counts, 100)
 		plot_distributions(counts, membership, method='merlin')
 		# As used below, method == 'yeom' runs a Yeom attack but finds a better threshold than is used in the original Yeom attack.
-		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		thresh, pred = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='yeom', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
 		thresh_yeom[run], fpr_yeom[run], adv_yeom[run], ppv_yeom[run] = thresh, fp / (gamma * 10000), adv, ppv
+		# As used below, method == 'shokri' runs a Shokri attack but finds a better threshold than is used in the original Yeom attack.
+		thresh, pred = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='shokri', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		fp, adv, ppv = get_fp(target_membership, pred), get_adv(target_membership, pred), get_ppv(target_membership, pred)
+		thresh_shokri[run], fpr_shokri[run], adv_shokri[run], ppv_shokri[run] = thresh, fp / (args.gamma * 10000), adv, ppv
 		# As used below, method == 'merlin' runs a new threshold-based membership inference attack that uses the direction of the change in per-instance loss for the record.
-		thresh, pred = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		thresh, pred = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		fp, adv, ppv = get_fp(membership, pred), get_adv(membership, pred), get_ppv(membership, pred)
 		thresh_merlin[run], fpr_merlin[run], adv_merlin[run], ppv_merlin[run] = thresh, fp / (gamma * 10000), adv, ppv
 		# Original Yeom attack that uses expected training loss threshold
@@ -221,15 +249,16 @@ def plot_privacy_leakage(result, eps=None, dp='gdp_'):
 	print('\nMerlin: \t %.2f +/- %.2f \t %.2f +/- %.2f' % (np.mean(merlin_zero_m), np.std(merlin_zero_m), np.mean(merlin_zero_nm), np.std(merlin_zero_nm)))
 	print('\nYeom Vanilla 1:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_yeom_vanilla_1), np.std(thresh_yeom_vanilla_1), np.mean(fpr_yeom_vanilla_1), np.std(fpr_yeom_vanilla_1), np.mean(adv_yeom_vanilla_1+fpr_yeom_vanilla_1), np.std(adv_yeom_vanilla_1+fpr_yeom_vanilla_1), np.mean(adv_yeom_vanilla_1), np.std(adv_yeom_vanilla_1), np.mean(ppv_yeom_vanilla_1), np.std(ppv_yeom_vanilla_1)))
 	print('\nYeom:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_yeom), np.std(thresh_yeom), np.mean(fpr_yeom), np.std(fpr_yeom), np.mean(adv_yeom+fpr_yeom), np.std(adv_yeom+fpr_yeom), np.mean(adv_yeom), np.std(adv_yeom), np.mean(ppv_yeom), np.std(ppv_yeom)))
+	print('\nShokri:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_shokri), np.std(thresh_shokri), np.mean(fpr_shokri), np.std(fpr_shokri), np.mean(adv_shokri+fpr_shokri), np.std(adv_shokri+fpr_shokri), np.mean(adv_shokri), np.std(adv_shokri), np.mean(ppv_shokri), np.std(ppv_shokri)))
 	print('\nMerlin:\nphi: %f +/- %f\nFPR: %.4f +/- %.4f\nTPR: %.4f +/- %.4f\nAdv: %.4f +/- %.4f\nPPV: %.4f +/- %.4f' % (np.mean(thresh_merlin), np.std(thresh_merlin), np.mean(fpr_merlin), np.std(fpr_merlin), np.mean(adv_merlin+fpr_merlin), np.std(adv_merlin+fpr_merlin), np.mean(adv_merlin), np.std(adv_merlin), np.mean(ppv_merlin), np.std(ppv_merlin)))				
 
 def scatterplot(result):
 	morgan(result)
 	for run in RUNS:
 		if args.eps == None:
-			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['no_privacy'][run]
 		else:
-			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
+			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
 		_, _, _, _, _, counts = proposed_mi_outputs
 		counts /= 100
 		axes = np.vstack((per_instance_loss, counts))
@@ -268,9 +297,9 @@ def morgan(result):
 	alpha_u = 0.3 # alpha value used to tune upper loss threshold
 	for run in RUNS:
 		if args.eps == None:
-			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['no_privacy'][run]
+			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['no_privacy'][run]
 		else:
-			_, membership, per_instance_loss, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
+			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
 		true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
 		low_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_l, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		high_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_u, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
