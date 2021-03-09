@@ -11,7 +11,7 @@ Below we describe the procedure to run the experiments for the following project
 
 ### Requirements
 
-- Python 2.7 or higher (https://www.anaconda.com/distribution/)
+- Python 3.7 (https://www.anaconda.com/distribution/)
 - Tensorflow (https://www.tensorflow.org/install)
 - Tensorflow Privacy (https://github.com/tensorflow/privacy)
 
