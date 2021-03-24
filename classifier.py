@@ -1,8 +1,8 @@
 from sklearn.metrics import classification_report, accuracy_score
+from constants import rdp_noise_multiplier, gdp_noise_multiplier
 from tensorflow_privacy.privacy.analysis.rdp_accountant import compute_rdp
 from tensorflow_privacy.privacy.analysis.rdp_accountant import get_privacy_spent
 from tensorflow_privacy.privacy.optimizers import dp_optimizer
-from constants import rdp_noise_multiplier, gdp_noise_multiplier
 import tensorflow as tf
 import numpy as np
 import os
