@@ -99,6 +99,8 @@ if __name__ == '__main__':
     # Flag to disable GPU
     if args.use_cpu:
     	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    else:
+        os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
     if args.save_data:
         save_data(args)
