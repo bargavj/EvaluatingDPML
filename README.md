@@ -78,28 +78,32 @@ For Purchase-100 data set, update the `target_l2_ratio` hyper-parameter as comme
 $ ./evaluating_dpml_run.sh purchase_100
 ```
 
-As noted above, the shell script execute takes several days since it executes `evaluating_dpml.py` for all possible settings as required by the experiments in the paper. You can either execute the entire shell script above and then skip to the [Plotting the results from the paper](###plotting-the-results-from-the-paper) section. Or you can execute `evaluating_dpml.py` for specific settings as explained below. This will run the python code once 
+As mentioned above, the enitre script execution takes several days to finish as it requires running `evaluating_dpml.py` multiple times for all possible settings. This is required to generate all the tables/plots in the paper. However, we can also run `evaluating_dpml.py` for specific settings, as explained below.
 
+When you are running the code on a data set for the first time, run:
+```
+python evaluating_dpml.py cifar_100 --save_data=1
+```
+This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
-### Training the non-private baseline models for CIFAR
+To train a single non-private neural network model over CIFAR-100 data set, you can run: 
+```
+python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
+```
+To train a single differentially private neural network model over CIFAR-100 data set using R\`{e}nyi differential privacy with a privacy loss budget of 10, run:
+```
+python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
+```
 
-When you are running the code on a data set for the first time, run `python evaluating_dpml.py $DATASET --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
-
-Run `python evaluating_dpml.py $DATASET --target_model=$MODEL --target_l2_ratio=$lambda` on terminal.
-
-For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$DATASET`='cifar_100', `$MODEL`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$DATASET`='cifar_100', `$MODEL`='softmax' and `$lambda`=1e-5.
-
-For training optimal non-private baseline neural network on Purchase-100 data set, we set `$DATASET`='purchase_100', `$MODEL`='nn' and `$lambda`=1e-8. For logsitic regression model, we set `$DATASET`='cifar_100', `$MODEL`='softmax' and `$lambda`=1e-5.
-
-### Training the differential private models
-
-Run `python evaluating_dpml.py $DATASET --target_model=$MODEL --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of evaluating_dpml.py for other command-line arguments.
 
 ### Plotting the results from the paper 
 
-Update the `$lambda` variables accordingly and run `./evaluating_dpml_run.sh $DATASET` on terminal. Results will be stored in `results/$DATASET` folder.
+Run `evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$LAMBDA` to obtain the plots and tabular results. For instance, to get the results for neural network model over CIFAR-100 data set, run:
+```
+evaluating_dpml_interpret_results.py cifar_100 --model='nn' --l2_ratio=1e-4
+```
 
-Run `evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Other command-line arguments are as follows: 
 - `--function` prints the plots if set to 1 (default), or gives the membership revelation results at fixed FPR if set to 2, or gives the membership revelation results at fixed threshold if set to 3.
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
