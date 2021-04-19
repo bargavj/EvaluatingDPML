@@ -82,17 +82,17 @@ As mentioned above, the enitre script execution takes several days to finish as 
 
 When you are running the code on a data set for the first time, run:
 ```
-python evaluating_dpml.py cifar_100 --save_data=1
+$ python evaluating_dpml.py cifar_100 --save_data=1
 ```
 This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
 To train a single non-private neural network model over CIFAR-100 data set, you can run: 
 ```
-python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
+$ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
 ```
-To train a single differentially private neural network model over CIFAR-100 data set using R\`{e}nyi differential privacy with a privacy loss budget of 10, run:
+To train a single differentially private neural network model over CIFAR-100 data set using R\`enyi differential privacy with a privacy loss budget of 10, run:
 ```
-python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
+$ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
 ```
 
 
@@ -100,7 +100,7 @@ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 -
 
 Run `evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$LAMBDA` to obtain the plots and tabular results. For instance, to get the results for neural network model over CIFAR-100 data set, run:
 ```
-evaluating_dpml_interpret_results.py cifar_100 --model='nn' --l2_ratio=1e-4
+$ evaluating_dpml_interpret_results.py cifar_100 --model='nn' --l2_ratio=1e-4
 ```
 
 Other command-line arguments are as follows: 
