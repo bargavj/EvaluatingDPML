@@ -69,10 +69,16 @@ For pre-processing other data sets, bound the L2 norm of each record to 1 and pi
 
 ## Evaluating Differentially Private Machine Learning in Practice
 
-To replicate the results from the paper [*Evaluating Differentially Private Machine Learning in Practice*](https://arxiv.org/abs/1902.08874), you would need to run `evaluating_dpml_run.sh` shell script, which runs the `evaluating_dpml.py` multiple times for different hyper-parameter settings and generates the results in the `results/$DATASET` folder. This is used for plotting the figures/tables in the paper. For instance, for CIFAR-100 data set, run the following command:
+To replicate the results from the paper [*Evaluating Differentially Private Machine Learning in Practice*](https://arxiv.org/abs/1902.08874), you would need to execute the `evaluating_dpml_run.sh` shell script, which runs the `evaluating_dpml.py` multiple times for different hyper-parameter settings and stores the results in the `results/$DATASET` folder. This is used for plotting the figures/tables in the paper. Note that the execution takes 3-5 days to complete on a single machine. For instance, for CIFAR-100 data set, run the following command:
 ```
-./evaluating_dpml_run.sh cifar_100
+$ ./evaluating_dpml_run.sh cifar_100
 ```
+For Purchase-100 data set, update the `target_l2_ratio` hyper-parameter as commented inside the script, and run:
+```
+$ ./evaluating_dpml_run.sh purchase_100
+```
+
+As noted above, the shell script execute takes several days since it executes `evaluating_dpml.py` for all possible settings as required by the experiments in the paper. You can either execute the entire shell script above and then skip to the [Plotting the results from the paper](### Plotting the results from the paper) section. Or you can execute `evaluating_dpml.py` for specific settings as explained below. This will run the python code once 
 
 
 ### Training the non-private baseline models for CIFAR
