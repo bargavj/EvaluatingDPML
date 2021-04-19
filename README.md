@@ -20,33 +20,33 @@ Below we describe the procedure to run the experiments for the following project
 Assuming the system has Ubuntu 18.04 OS. The easiest way to get Python 3.8 is to install [Anaconda 3](https://www.anaconda.com/distribution/) followed by installing the dependencies via pip. The following bash code installs the dependencies (including `scikit_learn`, `tensorflow>=2.4.0` and `tf-privacy`) in a virtual environment:
 
 ```
-python3 -m venv env
-source env/bin/activate
-python3 -m pip install --upgrade pip
-python3 -m pip install --no-cache-dir -r requirements.txt
+$ python3 -m venv env
+$ source env/bin/activate
+$ python3 -m pip install --upgrade pip
+$ python3 -m pip install --no-cache-dir -r requirements.txt
 ```
 
 Furthermore, for using cuda-compatible nvidia gpus, following script should be executed (copied from [Tensorflow website](https://www.tensorflow.org/install/gpu)):
 
 ```
 # Add NVIDIA package repositories
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
-sudo apt-get update
+$ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+$ sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+$ sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+$ sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+$ sudo apt-get update
 
-wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
+$ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 
-sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
-sudo apt-get update
+$ sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
+$ sudo apt-get update
 
-wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
-sudo apt install ./libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
-sudo apt-get update
+$ wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+$ sudo apt install ./libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+$ sudo apt-get update
 
 # Install development and runtime libraries (~4GB)
-sudo apt-get install --no-install-recommends \
+$ sudo apt-get install --no-install-recommends \
     cuda-11-0 \
     libcudnn8=8.0.4.30-1+cuda11.0  \
     libcudnn8-dev=8.0.4.30-1+cuda11.0
@@ -54,7 +54,7 @@ sudo apt-get install --no-install-recommends \
 # Reboot. Check that GPUs are visible using the command: nvidia-smi
 
 # Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
+$ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
     libnvinfer-dev=7.1.3-1+cuda11.0 \
     libnvinfer-plugin7=7.1.3-1+cuda11.0
 ```
