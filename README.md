@@ -78,7 +78,7 @@ For Purchase-100 data set, update the `target_l2_ratio` hyper-parameter as comme
 $ ./evaluating_dpml_run.sh purchase_100
 ```
 
-As noted above, the shell script execute takes several days since it executes `evaluating_dpml.py` for all possible settings as required by the experiments in the paper. You can either execute the entire shell script above and then skip to the [Plotting the results from the paper](### Plotting the results from the paper) section. Or you can execute `evaluating_dpml.py` for specific settings as explained below. This will run the python code once 
+As noted above, the shell script execute takes several days since it executes `evaluating_dpml.py` for all possible settings as required by the experiments in the paper. You can either execute the entire shell script above and then skip to the [Plotting the results from the paper](###plotting-the-results-from-the-paper) section. Or you can execute `evaluating_dpml.py` for specific settings as explained below. This will run the python code once 
 
 
 ### Training the non-private baseline models for CIFAR
