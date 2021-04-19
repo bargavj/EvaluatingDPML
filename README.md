@@ -11,9 +11,19 @@ Below we describe the procedure to run the experiments for the following project
 
 ### Requirements
 
-- Python 3.7 (https://www.anaconda.com/distribution/)
+- Python 3.8 (https://www.anaconda.com/distribution/)
 - Tensorflow (https://www.tensorflow.org/install)
 - Tensorflow Privacy (https://github.com/tensorflow/privacy)
+
+
+### Installation Instructions
+Assuming the system has Ubuntu 18.04 OS. The easiest way to get Python 3.8 is to install [Anaconda 3](https://www.anaconda.com/distribution/) followed by installing the dependencies via pip. The following bash code installs the dependencies in a virtual environment:
+
+`python3 -m venv env
+source env/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install --no-cache-dir -r requirements.txt`
+
 
 ### Pre-processing data sets
 
