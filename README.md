@@ -90,7 +90,7 @@ To train a single non-private neural network model over CIFAR-100 data set, you 
 ```
 $ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
 ```
-To train a single differentially private neural network model over CIFAR-100 data set using R\`enyi differential privacy with a privacy loss budget of 10, run:
+To train a single differentially private neural network model over CIFAR-100 data set using Rényi differential privacy with a privacy loss budget of 10, run:
 ```
 $ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
 ```
