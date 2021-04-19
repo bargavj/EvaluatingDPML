@@ -82,25 +82,25 @@ As mentioned above, the enitre script execution takes several days to finish as 
 
 When you are running the code on a data set for the first time, run:
 ```
-$ python evaluating_dpml.py cifar_100 --save_data=1
+$ python3 evaluating_dpml.py cifar_100 --save_data=1
 ```
 This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
 To train a single non-private neural network model over CIFAR-100 data set, you can run: 
 ```
-$ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
+$ python3 evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4
 ```
 To train a single differentially private neural network model over CIFAR-100 data set using Rényi differential privacy with a privacy loss budget of 10, run:
 ```
-$ python evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
+$ python3 evaluating_dpml.py cifar_100 --target_model='nn' --target_l2_ratio=1e-4 --target_privacy='grad_pert' --target_dp='rdp' --target_epsilon=10
 ```
 
 
 ### Plotting the results from the paper 
 
-Run `evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$LAMBDA` to obtain the plots and tabular results. For instance, to get the results for neural network model over CIFAR-100 data set, run:
+Run `python3 evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$LAMBDA` to obtain the plots and tabular results. For instance, to get the results for neural network model over CIFAR-100 data set, run:
 ```
-$ evaluating_dpml_interpret_results.py cifar_100 --model='nn' --l2_ratio=1e-4
+$ python3 evaluating_dpml_interpret_results.py cifar_100 --model='nn' --l2_ratio=1e-4
 ```
 
 Other command-line arguments are as follows: 
@@ -119,7 +119,7 @@ Other command-line arguments are as follows:
 
 To replicate the results of the paper [*Revisiting Membership Inference Under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $DATASET` on terminal.
 
-Run `improved_mi_interpret_results.py $DATASET --l2_ratio=$LAMBDA` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Run `python3 improved_mi_interpret_results.py $DATASET --l2_ratio=$LAMBDA` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
     - 'priv' prints the privacy leakage plots and table values
