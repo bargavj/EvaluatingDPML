@@ -12,7 +12,7 @@ Below we describe the procedure to run the experiments for the following project
 ### Software Requirements
 
 - Python 3.8 (https://www.anaconda.com/distribution/)
-- Tensorflow (https://www.tensorflow.org/install)
+- Tensorflow (https://www.tensorflow.org/install) : To use Tensorflow with GPU, cuda-toolkit-11 and cudnn-8 are also required (https://www.tensorflow.org/install/gpu).
 - Tensorflow Privacy (https://github.com/tensorflow/privacy)
 
 
