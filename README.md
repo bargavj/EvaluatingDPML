@@ -17,6 +17,7 @@ Below we describe the procedure to run the experiments for the following project
 
 
 ### Installation Instructions
+
 Assuming the system has Ubuntu 18.04 OS. The easiest way to get Python 3.8 is to install [Anaconda 3](https://www.anaconda.com/distribution/) followed by installing the dependencies via pip. The following bash code installs the dependencies (including `scikit_learn`, `tensorflow>=2.4.0` and `tf-privacy`) in a virtual environment:
 
 ```
@@ -26,7 +27,7 @@ $ python3 -m pip install --upgrade pip
 $ python3 -m pip install --no-cache-dir -r requirements.txt
 ```
 
-Furthermore, for using cuda-compatible nvidia gpus, following script should be executed (copied from [Tensorflow website](https://www.tensorflow.org/install/gpu)):
+Furthermore, to use cuda-compatible nvidia gpus, the following script should be executed (copied from [Tensorflow website](https://www.tensorflow.org/install/gpu)):
 
 ```
 # Add NVIDIA package repositories
