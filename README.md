@@ -27,7 +27,7 @@ $ python3 -m pip install --upgrade pip
 $ python3 -m pip install --no-cache-dir -r requirements.txt
 ```
 
-Furthermore, to use cuda-compatible nvidia gpus, the following script should be executed (copied from [Tensorflow website](https://www.tensorflow.org/install/gpu)):
+Furthermore, to use cuda-compatible nvidia gpus, the following script should be executed (copied from [Tensorflow website](https://www.tensorflow.org/install/gpu)) to install cuda-toolkit-11 and cudnn-8 as required by tensorflow-gpu:
 
 ```
 # Add NVIDIA package repositories
