@@ -9,7 +9,7 @@ Below we describe the procedure to run the experiments for the following project
 * [Revisiting Membership Inference Under Realistic Assumptions](#revisiting-membership-inference-under-realistic-assumptions)
 
 
-### Requirements
+### Software Requirements
 
 - Python 3.8 (https://www.anaconda.com/distribution/)
 - Tensorflow (https://www.tensorflow.org/install)
