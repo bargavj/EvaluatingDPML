@@ -64,32 +64,36 @@ $ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
 ### Pre-processing data sets
 
 Pre-processed CIFAR-100 data set has been provided in the `dataset/` folder. Purchase-100 data set can be downloaded from [Kaggle web site](https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data). This can be pre-processed using the preprocess_purchase.py script provided in the repository. Alternatively, the files for Purchase-100 data set can be found [here](https://drive.google.com/open?id=1nDDr8OWRaliIrUZcZ-0I8sEB2WqAXdKZ).
-For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$dataset`_feature.p and `$dataset`_labels.p files in the `dataset/` folder (where `$dataset` is a placeholder for the data set file name, e.g. for Purchase-100 data set, `$dataset` will be purchase_100).
+For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$DATASET`_feature.p and `$DATASET`_labels.p files in the `dataset/` folder (where `$DATASET` is a placeholder for the data set file name, e.g. for Purchase-100 data set, `$DATASET` will be `purchase_100`).
 
 
 ## Evaluating Differentially Private Machine Learning in Practice
 
-Follow the instructions below to replicate the results from the paper [*Evaluating Differentially Private Machine Learning in Practice*](https://arxiv.org/abs/1902.08874).
+To replicate the results from the paper [*Evaluating Differentially Private Machine Learning in Practice*](https://arxiv.org/abs/1902.08874), you would need to run `evaluating_dpml_run.sh` shell script, which runs the `evaluating_dpml.py` multiple times for different hyper-parameter settings and generates the results in the `results/$DATASET` folder. This is used for plotting the figures/tables in the paper. For instance, for CIFAR-100 data set, run the following command:
+```
+./evaluating_dpml_run.sh cifar_100
+```
+
 
 ### Training the non-private baseline models for CIFAR
 
-When you are running the code on a data set for the first time, run `python evaluating_dpml.py $dataset --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
+When you are running the code on a data set for the first time, run `python evaluating_dpml.py $DATASET --save_data=1` on terminal. This will split the data set into random subsets for training and testing of target, shadow and attack models.
 
-Run `python evaluating_dpml.py $dataset --target_model=$model --target_l2_ratio=$lambda` on terminal.
+Run `python evaluating_dpml.py $DATASET --target_model=$MODEL --target_l2_ratio=$lambda` on terminal.
 
-For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$dataset`='cifar_100', `$model`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
+For training optimal non-private baseline neural network on CIFAR-100 data set, we set `$DATASET`='cifar_100', `$MODEL`='nn' and `$lambda`=1e-4. For logsitic regression model, we set `$DATASET`='cifar_100', `$MODEL`='softmax' and `$lambda`=1e-5.
 
-For training optimal non-private baseline neural network on Purchase-100 data set, we set `$dataset`='purchase_100', `$model`='nn' and `$lambda`=1e-8. For logsitic regression model, we set `$dataset`='cifar_100', `$model`='softmax' and `$lambda`=1e-5.
+For training optimal non-private baseline neural network on Purchase-100 data set, we set `$DATASET`='purchase_100', `$MODEL`='nn' and `$lambda`=1e-8. For logsitic regression model, we set `$DATASET`='cifar_100', `$MODEL`='softmax' and `$lambda`=1e-5.
 
 ### Training the differential private models
 
-Run `python evaluating_dpml.py $dataset --target_model=$model --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of evaluating_dpml.py for other command-line arguments.
+Run `python evaluating_dpml.py $DATASET --target_model=$MODEL --target_l2_ratio=$lambda --target_privacy='grad_pert' --target_dp=$dp --target_epsilon=$epsilon` on terminal. Where `$dp` can be set to 'dp' for naive composition, 'adv_cmp' for advanced composition, 'zcdp' for zero concentrated DP and 'rdp' for Renyi DP. `$epsilon` controls the privacy budget parameter. Refer to __main__ block of evaluating_dpml.py for other command-line arguments.
 
 ### Plotting the results from the paper 
 
-Update the `$lambda` variables accordingly and run `./evaluating_dpml_run.sh $dataset` on terminal. Results will be stored in `results/$dataset` folder.
+Update the `$lambda` variables accordingly and run `./evaluating_dpml_run.sh $DATASET` on terminal. Results will be stored in `results/$DATASET` folder.
 
-Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Run `evaluating_dpml_interpret_results.py $DATASET --model=$MODEL --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--function` prints the plots if set to 1 (default), or gives the membership revelation results at fixed FPR if set to 2, or gives the membership revelation results at fixed threshold if set to 3.
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
@@ -103,9 +107,9 @@ Run `evaluating_dpml_interpret_results.py $dataset --model=$model --l2_ratio=$la
 
 ## Revisiting Membership Inference Under Realistic Assumptions
 
-To replicate the results of the paper [*Revisiting Membership Inference Under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $dataset` on terminal.
+To replicate the results of the paper [*Revisiting Membership Inference Under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $DATASET` on terminal.
 
-Run `improved_mi_interpret_results.py $dataset --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Run `improved_mi_interpret_results.py $DATASET --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
     - 'priv' prints the privacy leakage plots and table values
