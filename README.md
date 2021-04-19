@@ -73,7 +73,7 @@ To replicate the results from the paper [*Evaluating Differentially Private Mach
 ```
 $ ./evaluating_dpml_run.sh cifar_100
 ```
-For Purchase-100 data set, update the `target_l2_ratio` hyper-parameter as commented inside the script, and run:
+Note that the above script also installs all the required dependencies (in case not already installed), except cuda-toolkit and cudnn. For Purchase-100 data set, update the `target_l2_ratio` hyper-parameter as commented inside the script, and run:
 ```
 $ ./evaluating_dpml_run.sh purchase_100
 ```
