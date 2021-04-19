@@ -119,7 +119,7 @@ Other command-line arguments are as follows:
 
 To replicate the results of the paper [*Revisiting Membership Inference Under Realistic Assumptions*](https://arxiv.org/abs/2005.10881), use the same commands as above but replace `evaluating_dpml` with `improved_mi`. For instance, to run the batch file, run `./improved_mi_run.sh $DATASET` on terminal.
 
-Run `improved_mi_interpret_results.py $DATASET --l2_ratio=$lambda` to obtain the plots and tabular results. Other command-line arguments are as follows: 
+Run `improved_mi_interpret_results.py $DATASET --l2_ratio=$LAMBDA` to obtain the plots and tabular results. Other command-line arguments are as follows: 
 - `--plot` specifies the type of plot to be printed
     - 'acc' prints the accuracy loss comparison plot (default)
     - 'priv' prints the privacy leakage plots and table values
