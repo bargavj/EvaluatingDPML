@@ -22,7 +22,8 @@ Assuming the system has Ubuntu 18.04 OS. The easiest way to get Python 3.8 is to
 ```python3 -m venv env
 source env/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install --no-cache-dir -r requirements.txt'''
+python3 -m pip install --no-cache-dir -r requirements.txt
+```
 
 
 ### Pre-processing data sets
