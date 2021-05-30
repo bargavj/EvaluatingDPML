@@ -122,7 +122,7 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
     
     classifier = tf.estimator.Estimator(
             model_fn=get_model,
-            model_dir=CHECKPOINT_DIR,
+            #model_dir=CHECKPOINT_DIR,
             params = [
                 train_x.shape[0],
                 n_in,
