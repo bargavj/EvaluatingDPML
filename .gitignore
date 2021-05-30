@@ -1,11 +1,12 @@
-ENV/
-__pycache__/
-*.pyc
-data/
 model/
 results/
-log/
+data/
 dataset/
+log/
+ENV/
+__pycache__/
+__temp_files/
 traceEvents.json
 slurm-*.out
 joblog.txt
+*.pyc
