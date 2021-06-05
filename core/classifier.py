@@ -138,8 +138,7 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
                 learning_rate,
                 clipping_threshold,
                 l2_ratio,
-                epochs
-            ])
+                epochs])
 
     train_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
