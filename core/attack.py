@@ -37,7 +37,20 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
         dataset = load_data('target_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
 
-    classifier, aux = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, clipping_threshold=clipping_threshold, batch_size=batch_size, model=model, l2_ratio=l2_ratio, silent=False, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
+    classifier, aux = train_model(
+        dataset, 
+        n_hidden=n_hidden, 
+        epochs=epochs, 
+        learning_rate=learning_rate, 
+        clipping_threshold=clipping_threshold, 
+        batch_size=batch_size, 
+        model=model, 
+        l2_ratio=l2_ratio, 
+        silent=False, 
+        privacy=privacy, 
+        dp=dp, 
+        epsilon=epsilon, 
+        delta=delta)
     # test data for attack model
     attack_x, attack_y = [], []
 
@@ -86,7 +99,18 @@ def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rat
         train_x, train_y, test_x, test_y = dataset
 
         # train model
-        classifier = train_model(dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio, privacy=privacy, dp=dp, epsilon=epsilon, delta=delta)
+        classifier = train_model(
+            dataset, 
+            n_hidden=n_hidden, 
+            epochs=epochs, 
+            learning_rate=learning_rate, 
+            batch_size=batch_size, 
+            model=model, 
+            l2_ratio=l2_ratio, 
+            privacy=privacy, 
+            dp=dp, 
+            epsilon=epsilon, 
+            delta=delta)
         #print('Gather training data for attack model')
         attack_i_x, attack_i_y = [], []
 
@@ -151,7 +175,14 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         c_test_indices = test_indices[test_classes == c]
         c_test_x, c_test_y = test_x[c_test_indices], test_y[c_test_indices]
         c_dataset = (c_train_x, c_train_y, c_test_x, c_test_y)
-        classifier = train_model(c_dataset, n_hidden=n_hidden, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, model=model, l2_ratio=l2_ratio)
+        classifier = train_model(
+            c_dataset, 
+            n_hidden=n_hidden, 
+            epochs=epochs, 
+            learning_rate=learning_rate, 
+            batch_size=batch_size, 
+            model=model, 
+            l2_ratio=l2_ratio)
         
         pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
             x={'x': c_train_x},
