@@ -11,6 +11,7 @@ from core.utilities import prety_print_result
 from core.utilities import get_inference_threshold
 from core.utilities import generate_noise
 from core.utilities import get_attribute_variations
+from core.utilities import plot_layer_outputs
 from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
@@ -299,14 +300,14 @@ def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_ins
         save=args.save_model)
     v_per_instance_loss = np.array(log_loss(v_true_y, v_pred_y))
     noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
-    v_counts = loss_increase_counts(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
-    counts = loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params)
-    return (true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts)
+    v_merlin_ratio = get_merlin_ratio(v_true_x, v_true_y, v_classifier, v_per_instance_loss, noise_params)
+    merlin_ratio = get_merlin_ratio(true_x, true_y, classifier, per_instance_loss, noise_params)
+    return (true_y, v_true_y, v_membership, v_per_instance_loss, v_merlin_ratio, merlin_ratio)
 
 
 def evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=None, per_class_thresh=False):
-    true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-    print('-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
+    true_y, v_true_y, v_membership, v_per_instance_loss, v_merlin_ratio, merlin_ratio = proposed_mi_outputs
+    print('-' * 10 + 'Using Yeom\'s MI with custom threshold' + '-' * 10 + '\n')
     if per_class_thresh:
         classes = np.unique(true_y)
         pred_membership = np.zeros(len(membership))
@@ -320,22 +321,22 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
         pred_membership = np.where(per_instance_loss <= -thresh, 1, 0)
     prety_print_result(membership, pred_membership)
 
-    print('-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
+    print('-' * 10 + 'Using Merlin with custom threshold' + '-' * 10 + '\n')
     if per_class_thresh:
         classes = np.unique(true_y)
         pred_membership = np.zeros(len(membership))
         for c in classes:
             c_indices = np.arange(len(true_y))[true_y == c]
             v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
-            thresh = get_inference_threshold(v_counts[v_c_indices], v_membership[v_c_indices], fpr_threshold)
-            pred_membership[c_indices] = np.where(counts[c_indices] >= thresh, 1, 0)
+            thresh = get_inference_threshold(v_merlin_ratio[v_c_indices], v_membership[v_c_indices], fpr_threshold)
+            pred_membership[c_indices] = np.where(merlin_ratio[c_indices] >= thresh, 1, 0)
     else:
-        thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
-        pred_membership = np.where(counts >= thresh, 1, 0)
+        thresh = get_inference_threshold(v_merlin_ratio, v_membership, fpr_threshold)
+        pred_membership = np.where(merlin_ratio >= thresh, 1, 0)
     prety_print_result(membership, pred_membership)
 
 
-def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
+def get_merlin_ratio(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
     counts = np.zeros(len(true_x))
     for t in range(max_t):
         noisy_x = true_x + generate_noise(true_x.shape, true_x.dtype, noise_params)
@@ -347,7 +348,7 @@ def loss_increase_counts(true_x, true_y, classifier, per_instance_loss, noise_pa
         _, pred_y = get_predictions(predictions)
         noisy_per_instance_loss = np.array(log_loss(true_y, pred_y))
         counts += np.where(noisy_per_instance_loss > per_instance_loss, 1, 0)
-    return counts
+    return counts / max_t
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss, test_loss=None):
@@ -395,93 +396,45 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
         true_x[:,feature] = orignial_attribute
     return pred_membership_all
 
-
-def proposed_attribute_inference(true_x, true_y, classifier, membership, features, args):
-    print('-' * 10 + 'PROPOSED ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
-    low_per_instance_loss_all, high_per_instance_loss_all = [], []
-    low_counts_all, high_counts_all = [], []
-    true_attribute_value_all = []
-    for feature in features:
-        orignial_attribute = np.copy(true_x[:,feature])
-        low_value, high_value, true_attribute_value = get_attribute_variations(true_x, feature)
-        noise_params = (args.attack_noise_type, args.attack_noise_coverage, args.attack_noise_magnitude)
         
-        true_x[:,feature] = low_value
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': true_x},
-            num_epochs=1,
-            shuffle=False)
-        predictions = classifier.predict(input_fn=pred_input_fn)
-        _, low_op = get_predictions(predictions)
-        low_op = low_op.astype('float32')
-        low_op = log_loss(true_y, low_op)
-        low_counts = loss_increase_counts(true_x, true_y, classifier, low_op, noise_params)
-        
-        true_x[:,feature] = high_value
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-            x={'x': true_x},
-            num_epochs=1,
-            shuffle=False)
-        predictions = classifier.predict(input_fn=pred_input_fn)
-        _, high_op = get_predictions(predictions)
-        high_op = high_op.astype('float32')
-        high_op = log_loss(true_y, high_op)
-        high_counts = loss_increase_counts(true_x, true_y, classifier, high_op, noise_params)
-        
-        true_attribute_value_all.append(true_attribute_value)
-        low_per_instance_loss_all.append(low_op)
-        high_per_instance_loss_all.append(high_op)
-        low_counts_all.append(low_counts)
-        high_counts_all.append(high_counts)
-        true_x[:,feature] = orignial_attribute
-    return (true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all)
+# Adds small noise to avoid singular matrices
+def nematode(rows, cols):
+    return 1e-8 * np.random.rand(rows, cols)
+
+    
+def get_informative_neurons(mem, non_mem, sample_size, k, t, T):
+    print("Using Sample size of %d" % sample_size)
+    top_corr_freq = {}
+    informative_neurons = []
+    for j in range(T):
+        mem_j = np.array(mem)[np.random.randint(len(mem), size=sample_size)] + nematode(sample_size, mem.shape[1])
+        non_mem_j = np.array(non_mem)[np.random.randint(len(non_mem), size=sample_size)] + nematode(sample_size, non_mem.shape[1])
+        neuron_corr = np.corrcoef(np.hstack((np.concatenate((mem_j, non_mem_j), axis=0), np.concatenate((np.ones(len(mem_j)), np.zeros(len(non_mem_j))), axis=0).reshape((-1,1)))), rowvar=False)[-1, :-1]
+        top_corr = sorted(list(zip(neuron_corr, list(range(len(neuron_corr))))))[-k:]
+        print("Top %d correlations at run %d are in [%.2f, %.2f]" % (k, j, top_corr[0][0], top_corr[k-1][0]))
+        for it in top_corr:
+            top_corr_freq[it[1]] = top_corr_freq[it[1]] + 1 if it[1] in top_corr_freq else 1
+    print("\nNeurons that are most correlated in at least %d out of %d runs:" % (t, T))
+    for key in top_corr_freq:
+        if top_corr_freq[key] >= t:
+            print("Neuron #%d is in top %d in %d / %d runs." % (key, k, top_corr_freq[key], T))
+            informative_neurons.append(key)
+    return informative_neurons
 
 
-def evaluate_proposed_attribute_inference(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, per_class_thresh=False):
-    print('-' * 10 + 'Using Attack Method 1' + '-' * 10 + '\n')
-    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=1, per_class_thresh=per_class_thresh)
-
-    print('-' * 10 + 'Using Attack Method 2' + '-' * 10 + '\n')
-    evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=fpr_threshold, attack_method=2, per_class_thresh=per_class_thresh)
+def get_whitebox_score(X, mem_vector, non_mem_vector):
+    pr_m = stats.multivariate_normal(np.mean(mem_vector, axis=0), np.cov(mem_vector, rowvar=False)).pdf(X)
+    pr_nm = stats.multivariate_normal(np.mean(non_mem_vector, axis=0), np.cov(non_mem_vector, rowvar=False)).pdf(X)
+    return np.where(pr_m >= pr_nm, 1, 0)
 
 
-def evaluate_on_all_features(membership, proposed_mi_outputs, proposed_ai_outputs, features, fpr_threshold=None, attack_method=1, per_class_thresh=False):
-    true_y, v_true_y, v_membership, v_per_instance_loss, v_counts, counts = proposed_mi_outputs
-    true_attribute_value_all, low_per_instance_loss_all, high_per_instance_loss_all, low_counts_all, high_counts_all = proposed_ai_outputs
-    for i in range(len(features)):
-        high_prob = np.sum(true_attribute_value_all[i]) / len(true_attribute_value_all[i])
-        low_prob = 1 - high_prob
-        # Attack Method 1
-        if attack_method == 1:
-            if per_class_thresh:
-                classes = np.unique(true_y)
-                low_mem, high_mem = np.zeros(len(membership), dtype='int32'), np.zeros(len(membership), dtype='int32')
-                for c in classes:
-                    c_indices = np.arange(len(true_y))[true_y == c]
-                    v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
-                    thresh = get_inference_threshold(-v_per_instance_loss[v_c_indices], v_membership[v_c_indices], fpr_threshold)
-                    low_mem[c_indices] = np.where(np.array(low_per_instance_loss_all[i])[c_indices] <= -thresh, 1, 0)
-                    high_mem[c_indices] = np.where(np.array(high_per_instance_loss_all[i])[c_indices] <= -thresh, 1, 0)
-            else:
-                thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
-                low_mem = np.where(low_per_instance_loss_all[i] <= -thresh, 1, 0)
-                high_mem = np.where(high_per_instance_loss_all[i] <= -thresh, 1, 0)
-        # Attack Method 2
-        elif attack_method == 2:
-            if per_class_thresh:
-                classes = np.unique(true_y)
-                low_mem, high_mem = np.zeros(len(membership), dtype='int32'), np.zeros(len(membership), dtype='int32')
-                for c in classes:
-                    c_indices = np.arange(len(true_y))[true_y == c]
-                    v_c_indices = np.arange(len(v_true_y))[v_true_y == c]
-                    thresh = get_inference_threshold(v_counts[v_c_indices], v_membership[v_c_indices], fpr_threshold)
-                    low_mem[c_indices] = np.where(np.array(low_counts_all[i])[c_indices] >= thresh, 1, 0)
-                    high_mem[c_indices] = np.where(np.array(high_counts_all[i])[c_indices] >= thresh, 1, 0)
-            else:
-                thresh = get_inference_threshold(v_counts, v_membership, fpr_threshold)
-                low_mem = np.where(low_counts_all[i] >= thresh, 1, 0)
-                high_mem = np.where(high_counts_all[i] >= thresh, 1, 0)
-        pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
-        mask = [a | b for a, b in zip(low_mem, high_mem)]
-        pred_membership = mask & (pred_attribute_value ^ true_attribute_value_all[i] ^ [1]*len(pred_attribute_value))
-        prety_print_result(membership, pred_membership)
+def whitebox_attack(train_size, dataset_size, sensitive_test, labels, layer_outputs):
+    whitebox_info = np.zeros((dataset_size, len(labels)))
+    for i in range(len(labels)):
+        mem_ind = list(filter(lambda x: sensitive_test[x] == i, range(train_size)))
+        non_mem_ind = list(set(range(train_size)) - set(mem_ind))
+        #non_mem_ind = list(filter(lambda x: sensitive_test[x] == i, range(train_size, dataset_size)))
+        informative_neurons = get_informative_neurons(layer_outputs[mem_ind, i], layer_outputs[non_mem_ind, i], sample_size=100, k=10, t=3, T=10)
+        whitebox_info[:, i] = get_whitebox_score(layer_outputs[:, i, informative_neurons], layer_outputs[mem_ind, i][:, informative_neurons], layer_outputs[non_mem_ind, i][:, informative_neurons])
+        plot_layer_outputs(layer_outputs[mem_ind, i][:, informative_neurons], layer_outputs[non_mem_ind, i][:, informative_neurons])    
+    return whitebox_info
