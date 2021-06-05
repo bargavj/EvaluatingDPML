@@ -88,11 +88,11 @@ def plot_sign_histogram(membership, signs, trials):
     mem_size, non_mem_size = sum(membership), len(membership) - sum(membership)
     for i in range(len(signs)):
         if membership[i] == 1:
-            mem[signs[i]] += 1
+            mem[int(signs[i] * trials)] += 1
         else:
-            non_mem[signs[i]] += 1
-    plt.plot(np.arange(trials + 1)/100, mem / mem_size, 'k-', label='Members')
-    plt.plot(np.arange(trials + 1)/100, non_mem / non_mem_size, 'k--', label='Non Members')
+            non_mem[int(signs[i] * trials)] += 1
+    plt.plot(np.arange(0, 1.01, 0.01), mem / mem_size, 'k-', label='Members')
+    plt.plot(np.arange(0, 1.01, 0.01), non_mem / non_mem_size, 'k--', label='Non Members')
     plt.xlabel('Merlin Ratio')
     plt.ylabel('Fraction of Instances')
     plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
