@@ -2,7 +2,7 @@ import json
 from glob import glob
 
 # directory containing the timeline-*.json partial traces
-dir = 'log'
+dir = '../log'
 
 output = dict() # json object that will be written out
 output['traceEvents'] = []

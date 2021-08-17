@@ -1,0 +1,7 @@
+dm-tree
+matplotlib==3.1.1
+numpy==1.17.2
+scipy==1.4.1
+scikit_learn==0.21.3
+git+git://github.com/tensorflow/privacy@master
+tensorflow>=2.4.0
