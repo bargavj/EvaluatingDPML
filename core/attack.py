@@ -11,7 +11,6 @@ from core.utilities import prety_print_result
 from core.utilities import get_inference_threshold
 from core.utilities import generate_noise
 from core.utilities import get_attribute_variations
-from core.utilities import plot_layer_outputs
 from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
@@ -426,46 +425,3 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
         pred_membership_all.append(pred_membership)
         true_x[:,feature] = orignial_attribute
     return pred_membership_all
-
-        
-# Adds small noise to avoid singular matrices
-def nematode(rows, cols):
-    return 1e-8 * np.random.rand(rows, cols)
-
-    
-def get_informative_neurons(mem, non_mem, sample_size, k, t, T):
-    print("Using Sample size of %d" % sample_size)
-    top_corr_freq = {}
-    informative_neurons = []
-    for j in range(T):
-        mem_j = np.array(mem)[np.random.randint(len(mem), size=sample_size)] + nematode(sample_size, mem.shape[1])
-        non_mem_j = np.array(non_mem)[np.random.randint(len(non_mem), size=sample_size)] + nematode(sample_size, non_mem.shape[1])
-        neuron_corr = np.corrcoef(np.hstack((np.concatenate((mem_j, non_mem_j), axis=0), np.concatenate((np.ones(len(mem_j)), np.zeros(len(non_mem_j))), axis=0).reshape((-1,1)))), rowvar=False)[-1, :-1]
-        top_corr = sorted(list(zip(neuron_corr, list(range(len(neuron_corr))))))[-k:]
-        print("Top %d correlations at run %d are in [%.2f, %.2f]" % (k, j, top_corr[0][0], top_corr[k-1][0]))
-        for it in top_corr:
-            top_corr_freq[it[1]] = top_corr_freq[it[1]] + 1 if it[1] in top_corr_freq else 1
-    print("\nNeurons that are most correlated in at least %d out of %d runs:" % (t, T))
-    for key in top_corr_freq:
-        if top_corr_freq[key] >= t:
-            print("Neuron #%d is in top %d in %d / %d runs." % (key, k, top_corr_freq[key], T))
-            informative_neurons.append(key)
-    return informative_neurons
-
-
-def get_whitebox_score(X, mem_vector, non_mem_vector):
-    pr_m = stats.multivariate_normal(np.mean(mem_vector, axis=0), np.cov(mem_vector, rowvar=False)).pdf(X)
-    pr_nm = stats.multivariate_normal(np.mean(non_mem_vector, axis=0), np.cov(non_mem_vector, rowvar=False)).pdf(X)
-    return np.where(pr_m >= pr_nm, 1, 0)
-
-
-def whitebox_attack(train_size, dataset_size, sensitive_test, labels, layer_outputs):
-    whitebox_info = np.zeros((dataset_size, len(labels)))
-    for i in range(len(labels)):
-        mem_ind = list(filter(lambda x: sensitive_test[x] == i, range(train_size)))
-        non_mem_ind = list(set(range(train_size)) - set(mem_ind))
-        #non_mem_ind = list(filter(lambda x: sensitive_test[x] == i, range(train_size, dataset_size)))
-        informative_neurons = get_informative_neurons(layer_outputs[mem_ind, i], layer_outputs[non_mem_ind, i], sample_size=100, k=10, t=3, T=10)
-        whitebox_info[:, i] = get_whitebox_score(layer_outputs[:, i, informative_neurons], layer_outputs[mem_ind, i][:, informative_neurons], layer_outputs[non_mem_ind, i][:, informative_neurons])
-        plot_layer_outputs(layer_outputs[mem_ind, i][:, informative_neurons], layer_outputs[non_mem_ind, i][:, informative_neurons])    
-    return whitebox_info
