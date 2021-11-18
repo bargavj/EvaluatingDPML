@@ -291,13 +291,13 @@ def morgan(result):
 	alpha_u = 0.3 # alpha value used to tune upper loss threshold
 	for run in RUNS:
 		if args.eps == None:
-			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['no_privacy'][run]
+			_, membership, per_instance_loss, _, _, shokri_mi_outputs, proposed_mi_outputs = result['no_privacy'][run]
 		else:
-			_, membership, per_instance_loss, _, _, _, proposed_mi_outputs = result['gdp_'][args.eps][run]
+			_, membership, per_instance_loss, _, _, shokri_mi_outputs, proposed_mi_outputs = result['gdp_'][args.eps][run]
 		true_y, v_true_y, v_membership, v_per_instance_loss, v_merlin_ratio, merlin_ratio = proposed_mi_outputs
-		low_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_l, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
-		high_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_u, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
-		merlin_thresh, _ = get_pred_mem_mi(per_instance_loss, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		low_thresh, _ = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_l, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		high_thresh, _ = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='yeom', fpr_threshold=alpha_u, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
+		merlin_thresh, _ = get_pred_mem_mi(per_instance_loss, shokri_mi_outputs, proposed_mi_outputs, method='merlin', fpr_threshold=alpha, per_class_thresh=args.per_class_thresh, fixed_thresh=args.fixed_thresh)
 		pred_1 = np.where(per_instance_loss >= low_thresh, 1, 0)
 		pred_2 = np.where(per_instance_loss <= high_thresh, 1, 0)
 		pred_3 = np.where(merlin_ratio >= merlin_thresh, 1, 0)
