@@ -83,8 +83,7 @@ def get_model(features, labels, mode, params):
                             l2_norm_clip=clipping_threshold,
                             noise_multiplier=sigma,
                             num_microbatches=batch_size,
-                            learning_rate=learning_rate,
-                            ledger=None)
+                            learning_rate=learning_rate)
             opt_loss = vector_loss
         else:
             optimizer = AdamOptimizer(learning_rate=learning_rate)
