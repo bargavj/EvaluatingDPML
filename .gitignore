@@ -4,9 +4,13 @@ data/
 dataset/
 log/
 ENV/
+env/
+venv/
 __pycache__/
 __temp_files/
 traceEvents.json
 slurm-*.out
 joblog.txt
 *.pyc
+.DS_Store
+*.tmp

@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from core.constants import rdp_noise_multiplier
 from core.constants import gdp_noise_multiplier
@@ -12,7 +12,7 @@ LOGGING = False # enables tf.train.ProfilerHook (see use below)
 LOG_DIR = 'log'
 CHECKPOINT_DIR = '__temp_files'
 
-AdamOptimizer = tf.compat.v1.train.AdamOptimizer
+AdamOptimizer = tf.train.AdamOptimizer
 
 def get_predictions(predictions):
     pred_y, pred_scores = [], []
@@ -24,38 +24,48 @@ def get_predictions(predictions):
     return np.array(pred_y), np.array(pred_scores)
 
 
+def get_layer_outputs(predictions):
+    layer_outputs = []
+    val = next(predictions, None)
+    while val is not None:
+        layer_outputs.append(val['layer_outputs'])
+        val = next(predictions, None)
+    return np.array(layer_outputs)
+
+
 def get_model(features, labels, mode, params):
     n, n_in, n_hidden, n_out, non_linearity, model, privacy, dp, epsilon, delta, batch_size, learning_rate, clipping_threshold, l2_ratio, epochs = params
     if model == 'nn':
         #print('Using neural network...')
         input_layer = tf.reshape(features['x'], [-1, n_in])
-        h1 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(input_layer)
-        h2 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(h1)
-        pre_logits = tf.keras.layers.Dense(n_out, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(h2)
-        logits = tf.keras.layers.Softmax().apply(pre_logits)
+        h1 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(input_layer)
+        h2 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(h1)
+        pre_logits = tf.keras.layers.Dense(n_out, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(h2)
+        logits = tf.keras.layers.Softmax()(pre_logits)
     elif model == 'cnn':
         #print('Using convolution neural network...') # use only on Cifar-100
         input_layer = tf.reshape(features['x'], [-1, 32, 32, 3])
-        y = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation=non_linearity).apply(input_layer)
-        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
-        y = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3]).apply(y)
-        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
-        y = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3]).apply(y)
-        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2)).apply(y)
-        y = tf.keras.layers.Flatten().apply(y)
+        y = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation=non_linearity)(input_layer)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
+        y = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3])(y)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
+        y = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3])(y)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
+        y = tf.keras.layers.Flatten()(y)
         y = tf.nn.dropout(y, 0.2)
-        h1 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(y)
-        h2 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(h1)
-        pre_logits = tf.keras.layers.Dense(n_out, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(h2)
-        logits = tf.keras.layers.Softmax().apply(pre_logits)
+        h1 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(y)
+        h2 = tf.keras.layers.Dense(n_hidden, activation=non_linearity, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(h1)
+        pre_logits = tf.keras.layers.Dense(n_out, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(h2)
+        logits = tf.keras.layers.Softmax()(pre_logits)
     else:
         #print('Using softmax regression...')
         input_layer = tf.reshape(features['x'], [-1, n_in])
-        logits = tf.keras.layers.Dense(n_out, activation=tf.nn.softmax, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio)).apply(input_layer)
+        logits = tf.keras.layers.Dense(n_out, activation=tf.nn.softmax, kernel_regularizer=tf.keras.regularizers.l2(l2_ratio))(input_layer)
     
     predictions = {
       "classes": tf.argmax(input=logits, axis=1),
-      "probabilities": logits
+      "probabilities": logits,
+      "layer_outputs": tf.concat([h1, h2, pre_logits], axis=1) # not to be used for softmax regression
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -73,9 +83,9 @@ def get_model(features, labels, mode, params):
             elif dp == 'zcdp':
                 sigma = np.sqrt(epochs / 2) * (np.sqrt(np.log(1 / delta) + epsilon) + np.sqrt(np.log(1 / delta))) / epsilon
             elif dp == 'rdp':
-                sigma = rdp_noise_multiplier[epochs][epsilon]
+                sigma = rdp_noise_multiplier[n][epochs][epsilon]
             elif dp == 'gdp':
-                sigma = gdp_noise_multiplier[epochs][epsilon]
+                sigma = gdp_noise_multiplier[n][epochs][epsilon]
             else: # if dp == 'dp'
                 sigma = epochs * np.sqrt(2 * np.log(1.25 * epochs / delta)) / epsilon
     
@@ -88,7 +98,7 @@ def get_model(features, labels, mode, params):
         else:
             optimizer = AdamOptimizer(learning_rate=learning_rate)
             opt_loss = scalar_loss
-        global_step = tf.compat.v1.train.get_global_step()
+        global_step = tf.train.get_global_step()
         train_op = optimizer.minimize(loss=opt_loss, global_step=global_step)
         return tf.estimator.EstimatorSpec(mode=mode,
                                           loss=scalar_loss,
@@ -97,7 +107,7 @@ def get_model(features, labels, mode, params):
     elif mode == tf.estimator.ModeKeys.EVAL:
         eval_metric_ops = {
             'accuracy':
-                tf.compat.v1.metrics.accuracy(
+                tf.metrics.accuracy(
                     labels=labels,
                      predictions=predictions["classes"])
         }
@@ -139,18 +149,18 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
                 l2_ratio,
                 epochs])
 
-    train_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+    train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         y=train_y,
         batch_size=batch_size,
         num_epochs=epochs,
         shuffle=True)
-    train_eval_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+    train_eval_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         y=train_y,
         num_epochs=1,
         shuffle=False)
-    test_eval_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+    test_eval_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': test_x},
         y=test_y,
         num_epochs=1,
