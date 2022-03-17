@@ -20,10 +20,17 @@ RESULT_PATH = 'results/'
 if not os.path.exists(RESULT_PATH):
     os.makedirs(RESULT_PATH)
 
+
 def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
-    dataset = load_data('target_data.npz', args)
-    v_dataset = load_data('shadow0_data.npz', args)
+    dataset = None
+    v_dataset = None
+    if args.data_id and int(args.data_id)>=0:
+        dataset = load_data(f'target_data_{args.data_id}.npz', args)
+        v_dataset = load_data(f'shadow0_data_{args.data_id}.npz', args)
+    else:
+        dataset = load_data(f'target_data.npz', args)
+        v_dataset = load_data(f'shadow0_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
     true_x = np.vstack((train_x, test_x))
     true_y = np.append(train_y, test_y)
@@ -62,11 +69,20 @@ def run_experiment(args):
 
     if not os.path.exists(RESULT_PATH+args.train_dataset):
         os.makedirs(RESULT_PATH+args.train_dataset)
-    
-    if args.target_privacy == 'no_privacy':
-        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_no_privacy_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+    if args.data_id and int(args.data_id)>=0:
+        directory = RESULT_PATH+args.train_dataset+f'/dataID_{args.data_id}/'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        if args.target_privacy == 'no_privacy':
+            pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(directory+str(args.target_test_train_ratio)+'_'+args.target_model+'_no_privacy_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+        else:
+            pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(directory+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
     else:
-        pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+        if args.target_privacy == 'no_privacy':
+            pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_no_privacy_'+str(args.target_l2_ratio)+'_'+str(args.run)+'.p', 'wb'))	
+        else:
+            pickle.dump([aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs], open(RESULT_PATH+args.train_dataset+'/'+str(args.target_test_train_ratio)+'_'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -102,17 +118,23 @@ if __name__ == '__main__':
     parser.add_argument('--attack_noise_coverage', type=str, default='full')
     parser.add_argument('--attack_noise_magnitude', type=float, default=0.01)
 
+    # specify datafile names
+    parser.add_argument('--data_id', type=int, default=-1)
+
     # parse configuration
     args = parser.parse_args()
     print(vars(args))
     
     # Flag to disable GPU
     if args.use_cpu:
-    	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     else:
         os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
     if args.save_data:
-        save_data(args)
+        if args.data_id and int(args.data_id) >= 0:
+            save_data(args, args.data_id)
+        else:
+            save_data(args)
     else:
         run_experiment(args)
