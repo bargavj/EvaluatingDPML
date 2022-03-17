@@ -267,6 +267,7 @@ def benchmark_results(result):
 			print()
 			if not dp:
 				break
+
 def plot_accuracy(result):
 	train_accs, baseline_acc = np.zeros(B), np.zeros(B)
 	for run in RUNS:
