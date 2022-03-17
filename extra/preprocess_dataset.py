@@ -9,12 +9,79 @@ import operator
 import argparse
 from os import listdir
 from os.path import isfile, join
+import os
+import warnings
+warnings.filterwarnings("ignore")
 
 DATA_PATH = '../dataset/'
 
 
 class PreprocessDataset:
     dataset_name = ''
+    x_columns = ['AGEP', 'COW', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'DREM', 'DPHY', 'DEAR', 'DEYE', 'WKHP', 'WAOB', 'ST','PINCP']
+    
+    
+    def parseX(self):
+        if not args.x:
+            return []
+        allColumns = args.x.split(",")
+        #remove spaces and capitalize characters
+        allColumns = [f.strip().upper() for f in allColumns]
+        #first validate the args and only look at columns that can exist in census
+        allColumns = [f for f in allColumns if f in self.x_columns]
+        #then find all columns that is not needed and should be dropped
+        allColumns = [f for f in self.x_columns if f not in allColumns]
+        if 'PINCP' in allColumns:
+            allColumns.remove('PINCP')
+        return allColumns
+
+    
+    def parseConstraint(self, X):
+        if not args.constraints:
+            return X
+        temp_X = X
+        constraints = args.constraints.split(",")
+        for cons in constraints:
+            if "!=" in cons:
+                parse = cons.split("!=")
+                column = parse[0].upper()
+                value = int(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] != value]
+            elif "<=" in cons:
+                parse = cons.split("<=")
+                column = parse[0].upper()
+                value = int(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] <= value]
+            elif ">=" in cons:
+                parse = cons.split(">=")
+                column = parse[0].upper()
+                value = int(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] >= value]
+            elif ">" in cons:
+                parse = cons.split(">")
+                column = parse[0].upper()
+                value = int(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] > value]
+            elif "<" in cons:
+                parse = cons.split("<")
+                column = parse[0].upper()
+                value = int(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] < value]
+            elif "=" in cons:
+                parse = cons.split("=")
+                column = parse[0].upper()
+                value = float(parse[1])
+                if column in X.columns:
+                    temp_X = temp_X.loc[temp_X[column] == value]
+        if len(temp_X.index)==0:
+            raise Exception("There is no matching row with the given constraints!")
+        return temp_X
+    
     
     def __init__(self, dataset_name):
         self.dataset_name = dataset_name
@@ -240,7 +307,7 @@ class PreprocessDataset:
             # Note: psam_p51.csv file can be downloaded from https://www.census.gov/programs-surveys/acs/microdata/access.html
             df = pd.read_csv(path+"/"+file)
             ''' to make a data set similar to Adult data set, filter rows such that 
-                df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 50k
+                df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 90k (taken into account of inflation from 1996)
                 'PWGTP' should not be used for model training, its possibly for data sampling
                 PS: the ST (state) column is included to denote the geographical region of the data records.
             '''
@@ -254,7 +321,7 @@ class PreprocessDataset:
             df = df.astype('int64')
             #print(df)
             #print(df.isnull().any(axis=0))
-            print('Number of records with Income > $50K: %d' % sum(df['PINCP'] > 50000))
+            
             # combining Alaskan Native and American Indian, and their combinations into one class
             df['RAC1P'][df['RAC1P'] == 3] = 2
             df['RAC1P'][df['RAC1P'] == 4] = 2
@@ -272,99 +339,138 @@ class PreprocessDataset:
         for old_val,new_val in zip(unique_st,list(range(len(unique_st)))):
             df_all['ST'][df_all['ST']==old_val] = new_val
 
-        y = np.array(df_all['PINCP'])
-        y = np.where(y >= 50000, 1, 0)
-        X = np.matrix(df_all.drop(columns='PINCP'))
+        X = df_all.copy()
+        X = self.parseConstraint(X)
         
+        #this gets all the columns that needs to be dropped
+        allColumns = self.parseX()
+        # print(allColumns)
+        if allColumns:
+            X = X.drop(columns=allColumns)
+        # print(X)
         
-
+        y = np.array(X['PINCP'])
+        y = np.where(y >= args.high_income_threshold, 1, 0)
+        # print('Number of records with Income > $90K: %d' % sum(X['PINCP'] > 90000))
+        X = X.drop(columns='PINCP')
         # creating the categorical attribute dictionary
         attribute_dict = {}
         for col, desc in zip(['DREM', 'DPHY', 'DEAR', 'DEYE'], ['Cognitive Difficulty', 'Ambulatory Difficulty', 'Hearing Difficulty', 'Vision Difficulty']):
-            attribute_dict[df_all.columns.get_loc(col)] = {0: 'No ' + desc, 1: desc}
-        attribute_dict[df_all.columns.get_loc('SEX')] = {0: 'Male', 1: 'Female'}
-        attribute_dict[df_all.columns.get_loc('COW')] = {0: 'Private For-Profit', 1: 'Private Non-Profit', 2: 'Local Govt', 3: 'State Govt', 4: 'Federal Govt', 5: 'Self-Employed Other', 6: 'Self-Employed Own', 7: 'Unpaid Job', 8: 'Unemployed'}
-        attribute_dict[df_all.columns.get_loc('MAR')] = {0: 'Married', 1: 'Widowed', 2: 'Divorced', 3: 'Separated', 4: 'Never married'}
-        attribute_dict[df_all.columns.get_loc('RAC1P')] = {0: 'White', 1: 'Black', 2: 'Native American', 3: 'Asian', 4: 'Pacific Islander', 5: 'Some Other Race', 6: 'Two or More Races'}
-        attribute_dict[df_all.columns.get_loc('WAOB')] = {0: 'US state', 1: 'PR and US Island Areas', 2: 'Latin America', 3: 'Asia', 4: 'Europe', 5: 'Africa', 6: 'Northern America', 7: 'Oceania and at Sea'}
-        attribute_dict[df_all.columns.get_loc('ST')] = {
-            0:'Alabama/AL',
-            1:'Alaska/AK',
-            2:'Arizona/AZ',
-            3:'Arkansas/AR',
-            4:'California/CA',
-            5:'Colorado/CO',
-            6:'Connecticut/CT',
-            7:'Delaware/DE',
-            8:'District of Columbia/DC',
-            9:'Florida/FL',
-            10:'Georgia/GA',
-            11:'Hawaii/HI',
-            12:'Idaho/ID',
-            13:'Illinois/IL',
-            14:'Indiana/IN',
-            15:'Iowa/IA',
-            16:'Kansas/KS',
-            17:'Kentucky/KY',
-            18:'Louisiana/LA',
-            19:'Maine/ME',
-            20:'Maryland/MD',
-            21:'Massachusetts/MA',
-            22:'Michigan/MI',
-            23:'Minnesota/MN',
-            24:'Mississippi/MS',
-            25:'Missouri/MO',
-            26:'Montana/MT',
-            27:'Nebraska/NE',
-            28:'Nevada/NV',
-            29:'New Hampshire/NH',
-            30:'New Jersey/NJ',
-            31:'New Mexico/NM',
-            32:'New York/NY',
-            33:'North Carolina/NC',
-            34:'North Dakota/ND',
-            35:'Ohio/OH',
-            36:'Oklahoma/OK',
-            37:'Oregon/OR',
-            38:'Pennsylvania/PA',
-            39:'Rhode Island/RI',
-            40:'South Carolina/SC',
-            41:'South Dakota/SD',
-            42:'Tennessee/TN',
-            43:'Texas/TX',
-            44:'Utah/UT',
-            45:'Vermont/VT',
-            46:'Virginia/VA',
-            47:'Washington/WA',
-            48:'West Virginia/WV',
-            49:'Wisconsin/WI',
-            50:'Wyoming/WY',
-            51:'Puerto Rico/PR'
-            }
-        
-        attribute_dict[df_all.columns.get_loc('SCHL')] = {0: 'No schooling completed', 1: 'Nursery school, preschool', 2: 'Kindergarten', 3: 'Grade 1', 4: 'Grade 2', 5: 'Grade 3', 6: 'Grade 4', 7: 'Grade 5', 8: 'Grade 6', 9: 'Grade 7', 10: 'Grade 8', 11: 'Grade 9', 12: 'Grade 10', 13: 'Grade 11', 14: '12th grade - no diploma', 15: 'Regular high school diploma', 16: 'GED or alternative credential', 17: 'Some college, but less than 1 year', 18: '1 or more years of college credit, no degree', 19: 'Associates degree', 20: 'Bachelors degree', 21: 'Masters degree', 22: 'Professional degree beyond a bachelors degree', 23: 'Doctorate degree'}
-        
-        attribute_idx = {col: df_all.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL', 'ST']}
-        pprint(attribute_idx)
-        pprint(attribute_dict)
-            
+            if col not in allColumns:
+                attribute_dict[X.columns.get_loc(col)] = {0: 'No ' + desc, 1: desc}
+        if 'SEX' not in allColumns:
+            attribute_dict[X.columns.get_loc('SEX')] = {0: 'Male', 1: 'Female'}
+        if 'COW' not in allColumns:
+            attribute_dict[X.columns.get_loc('COW')] = {0: 'Private For-Profit', 1: 'Private Non-Profit', 2: 'Local Govt', 3: 'State Govt', 4: 'Federal Govt', 5: 'Self-Employed Other', 6: 'Self-Employed Own', 7: 'Unpaid Job', 8: 'Unemployed'}
+        if 'MAR' not in allColumns:
+            attribute_dict[X.columns.get_loc('MAR')] = {0: 'Married', 1: 'Widowed', 2: 'Divorced', 3: 'Separated', 4: 'Never married'}
+        if 'RAC1P' not in allColumns:
+            attribute_dict[X.columns.get_loc('RAC1P')] = {0: 'White', 1: 'Black', 2: 'Native American', 3: 'Asian', 4: 'Pacific Islander', 5: 'Some Other Race', 6: 'Two or More Races'}
+        if 'WAOB' not in allColumns:
+            attribute_dict[X.columns.get_loc('WAOB')] = {0: 'US state', 1: 'PR and US Island Areas', 2: 'Latin America', 3: 'Asia', 4: 'Europe', 5: 'Africa', 6: 'Northern America', 7: 'Oceania and at Sea'}
+        if 'ST' not in allColumns:
+            attribute_dict[X.columns.get_loc('ST')] = {
+                0:'Alabama/AL',
+                1:'Alaska/AK',
+                2:'Arizona/AZ',
+                3:'Arkansas/AR',
+                4:'California/CA',
+                5:'Colorado/CO',
+                6:'Connecticut/CT',
+                7:'Delaware/DE',
+                8:'District of Columbia/DC',
+                9:'Florida/FL',
+                10:'Georgia/GA',
+                11:'Hawaii/HI',
+                12:'Idaho/ID',
+                13:'Illinois/IL',
+                14:'Indiana/IN',
+                15:'Iowa/IA',
+                16:'Kansas/KS',
+                17:'Kentucky/KY',
+                18:'Louisiana/LA',
+                19:'Maine/ME',
+                20:'Maryland/MD',
+                21:'Massachusetts/MA',
+                22:'Michigan/MI',
+                23:'Minnesota/MN',
+                24:'Mississippi/MS',
+                25:'Missouri/MO',
+                26:'Montana/MT',
+                27:'Nebraska/NE',
+                28:'Nevada/NV',
+                29:'New Hampshire/NH',
+                30:'New Jersey/NJ',
+                31:'New Mexico/NM',
+                32:'New York/NY',
+                33:'North Carolina/NC',
+                34:'North Dakota/ND',
+                35:'Ohio/OH',
+                36:'Oklahoma/OK',
+                37:'Oregon/OR',
+                38:'Pennsylvania/PA',
+                39:'Rhode Island/RI',
+                40:'South Carolina/SC',
+                41:'South Dakota/SD',
+                42:'Tennessee/TN',
+                43:'Texas/TX',
+                44:'Utah/UT',
+                45:'Vermont/VT',
+                46:'Virginia/VA',
+                47:'Washington/WA',
+                48:'West Virginia/WV',
+                49:'Wisconsin/WI',
+                50:'Wyoming/WY',
+                51:'Puerto Rico/PR'
+                }
+        if 'SCHL' not in allColumns:
+            attribute_dict[X.columns.get_loc('SCHL')] = {0: 'No schooling completed', 1: 'Nursery school, preschool', 2: 'Kindergarten', 3: 'Grade 1', 4: 'Grade 2', 5: 'Grade 3', 6: 'Grade 4', 7: 'Grade 5', 8: 'Grade 6', 9: 'Grade 7', 10: 'Grade 8', 11: 'Grade 9', 12: 'Grade 10', 13: 'Grade 11', 14: '12th grade - no diploma', 15: 'Regular high school diploma', 16: 'GED or alternative credential', 17: 'Some college, but less than 1 year', 18: '1 or more years of college credit, no degree', 19: 'Associates degree', 20: 'Bachelors degree', 21: 'Masters degree', 22: 'Professional degree beyond a bachelors degree', 23: 'Doctorate degree'}
+        attribute_idx = {col: X.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL', 'ST'] if col not in allColumns}
+        # pprint(attribute_idx)
+        # pprint(attribute_dict)
+        X = np.matrix(X)
+
         max_attr_vals = np.max(X, axis=0)
-        X = X / max_attr_vals
+        try:
+            X = X / max_attr_vals
+        except:
+            pass
         
         max_attr_vals = np.squeeze(np.array(max_attr_vals))
-        print(max_attr_vals, max_attr_vals.shape)
-        print(f"Length of y: {len(y)}")
-        print(f"Dimension of X: {X.shape}")
-        np.savetxt(DATA_PATH+self.dataset_name+"_features.csv", X, delimiter=",")
-        np.savetxt(DATA_PATH+self.dataset_name+"_labels.csv", y, delimiter=",")
-        print(attribute_idx)
-        print(attribute_dict)
-        print(max_attr_vals)
+        # print(max_attr_vals, max_attr_vals.shape)
+        # print(f"Length of y: {len(y)}")
+        # print(f"Dimension of X: {X.shape}")
+        if args.add_data_id:
+            dataset_identifier = 0
+            fname = DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p'
+            while os.path.isfile(fname):
+                dataset_identifier+=1
+                fname = DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p'
 
-        pickle.dump(X, open(DATA_PATH+self.dataset_name+'_features.p', 'wb'))
-        pickle.dump(y, open(DATA_PATH+self.dataset_name+'_labels.p', 'wb'))
-        pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+'_feature_desc.p', 'wb'))
-        
+            np.savetxt(DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.csv', X, delimiter=",")
+            np.savetxt(DATA_PATH+self.dataset_name+f'_labels_{dataset_identifier}.csv', y, delimiter=",")
+            # pprint(attribute_idx)
+            # pprint(attribute_dict)
+            # print(f"maximum attribute values for columns: {max_attr_vals}")
+
+            pickle.dump(X, open(DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p', 'wb'))
+            pickle.dump(y, open(DATA_PATH+self.dataset_name+f'_labels_{dataset_identifier}.p', 'wb'))
+            pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+f'_feature_desc_{dataset_identifier}.p', 'wb'))
+            with open(DATA_PATH+self.dataset_name+f'_info_{dataset_identifier}.txt', 'w') as f:
+                f.write(f"high income threshold: {args.high_income_threshold} \nX: {args.x} \nconstraints: {args.constraints}")
+            print(dataset_identifier)
+        else:
+            np.savetxt(DATA_PATH+self.dataset_name+f'_features.csv', X, delimiter=",")
+            np.savetxt(DATA_PATH+self.dataset_name+f'_labels.csv', y, delimiter=",")
+            # pprint(attribute_idx)
+            # pprint(attribute_dict)
+            # print(f"maximum attribute values for columns: {max_attr_vals}")
+
+            pickle.dump(X, open(DATA_PATH+self.dataset_name+f'_features.p', 'wb'))
+            pickle.dump(y, open(DATA_PATH+self.dataset_name+f'_labels.p', 'wb'))
+            pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+'_feature_desc.p', 'wb'))
+            print(-1)
+    
     
     def preprocess_texas(self):
         # Note: PUDF_base1q2006_tab.txt file can be downloaded from https://www.dshs.texas.gov/THCIC/Hospitals/Download.shtm
@@ -432,10 +538,20 @@ if __name__ == '__main__':
     parser.add_argument('dataset', type=str)
     parser.add_argument('--preprocess', type=int, default=0)
     parser.add_argument('--binarize', type=int, default=0)
+    #this specifies the threshold for the high income class for y.
+    parser.add_argument('--high_income_threshold', type=int, default=90000)
+    #--x specifies the columns for x that will be included in the preprocessed data set. column names are separated by ,
+    #example: --x="ST,SEX"
+    parser.add_argument('--x', type=str, default="")
+    #Constraints are in format: [column][symbol][value]. [column] is a column name in the census data. [symbol] can be: =,>,<,>=,<=,!=. [value] is an int or float. If there are multiple constraints, they are separated by ,
+    #example: --constraints="ST=31,SEX=0"
+    parser.add_argument('--constraints', type=str, default="")
+
+    parser.add_argument('--add_data_id',type=int,default=0)
     args = parser.parse_args()
 
     ds = PreprocessDataset(args.dataset)
-    
+
     if args.preprocess:
         ds.preprocess()
     
