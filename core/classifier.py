@@ -130,7 +130,7 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
     """
     Calls the get_model() to create a model given the model specifications, 
     performs model training and returns the trained model (along with the 
-    auxiliary information if silent == True).
+    auxiliary information if silent != True).
     """
     train_x, train_y, test_x, test_y = dataset
 
