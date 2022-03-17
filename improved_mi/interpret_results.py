@@ -417,7 +417,6 @@ if __name__ == '__main__':
 
 	gamma = args.gamma
 	alpha = args.alpha
-	# DATA_PATH = './results/' + str(args.dataset) + '_improved_mi/'
 	DATA_PATH = './results/' + str(args.dataset) + '/'
 	MODEL = str(gamma) + '_' + str(args.model) + '_'
 
