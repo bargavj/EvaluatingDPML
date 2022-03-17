@@ -21,6 +21,7 @@ RESULT_PATH = 'results/'
 if not os.path.exists(RESULT_PATH):
     os.makedirs(RESULT_PATH)
 
+
 def run_experiment(args):
     print('-' * 10 + 'TRAIN TARGET' + '-' * 10 + '\n')
     dataset = load_data('target_data.npz', args)
@@ -73,6 +74,7 @@ def run_experiment(args):
             pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, pred_membership_all, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_no_privacy_'+str(args.target_l2_ratio)+'.p', 'wb'))
         else:
             pickle.dump([train_acc, test_acc, train_loss, membership, shokri_mem_adv, shokri_mem_confidence, yeom_mem_adv, per_instance_loss, yeom_attr_adv, pred_membership_all, features], open(RESULT_PATH+args.train_dataset+'/'+args.target_model+'_'+args.target_privacy+'_'+args.target_dp+'_'+str(args.target_epsilon)+'_'+str(args.run)+'.p', 'wb'))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
