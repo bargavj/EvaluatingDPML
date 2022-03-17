@@ -12,6 +12,8 @@ url = "https://www2.census.gov/programs-surveys/acs/data/pums/2019/1-Year/"
 dataFolder = "../dataset/census/"
 blackListFiles = []
 targetFiles = ["csv_pus.zip"]
+
+
 def isFilePresent(fileName):
     """Returns whether a given data file found on the download web page is already present in the local folder.
     Also checks if the file is in the file blacklist (certain unwanted files)
@@ -19,6 +21,7 @@ def isFilePresent(fileName):
     global dataFolder,blackListFiles
     allDataFiles = [f for f in listdir(dataFolder) if (isfile(join(dataFolder, f)) and f.endswith('.zip'))]
     return fileName in allDataFiles and not (fileName in blackListFiles)
+
 
 def crawl_data():
     print("### Starting to crawl data.")
@@ -48,6 +51,8 @@ def crawl_data():
     print()
     print("### Finished crawling data.")
     return 0
+
+
 def processZips():
     print("### Starting to unzip data.")
     global dataFolder
@@ -58,11 +63,15 @@ def processZips():
         with zipfile.ZipFile(zipFileDir, 'r') as zip_ref:
             zip_ref.extractall(dataFolder)
     print("### Finished unzipping data.")
+
+    
 def filePatternTest(string:str):
     #change this condition for finding data download files that are not the census data.
     # condition = string.endswith(".zip") and string.startswith("csv_p")
     condition = string in targetFiles
     return condition
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_census_data',type=str,default='1year')
