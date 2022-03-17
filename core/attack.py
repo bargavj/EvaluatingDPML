@@ -2,7 +2,7 @@ import os
 import argparse
 import pickle
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from core.classifier import train as train_model
 from core.classifier import get_predictions
@@ -11,7 +11,7 @@ from core.utilities import prety_print_result
 from core.utilities import get_inference_threshold
 from core.utilities import generate_noise
 from core.utilities import get_attribute_variations
-from scipy import stats
+from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
 
@@ -22,6 +22,9 @@ if not os.path.exists(MODEL_PATH):
 
 
 def load_attack_data():
+    """
+    Helper function to load the attack data for meta-model training.
+    """
     fname = MODEL_PATH + 'attack_train_data.npz'
     with np.load(fname) as f:
         train_x, train_y = [f['arr_%d' % i] for i in range(len(f.files))]
@@ -32,6 +35,9 @@ def load_attack_data():
 
 
 def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+    """
+    Wrapper function that trains the target model over the sensitive data.
+    """
     if dataset == None:
         dataset = load_data('target_data.npz', args)
     train_x, train_y, test_x, test_y = dataset
@@ -54,7 +60,7 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
     attack_x, attack_y = [], []
 
     # data used in training, label is 1
-    pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': train_x},
         num_epochs=1,
         shuffle=False)
@@ -66,7 +72,7 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
     attack_y.append(np.ones(train_x.shape[0]))
     
     # data not used in training, label is 0
-    pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'x': test_x},
         num_epochs=1,
         shuffle=False)
@@ -90,6 +96,10 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
 
 
 def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rate=0.05, batch_size=100, l2_ratio=1e-7, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+    """
+    Wrapper function to train the shadow models similar to the target model.
+    Shadow model training is peformed over the hold-out data.
+    """
     attack_x, attack_y = [], []
     classes = []
     for i in range(n_shadow):
@@ -114,7 +124,7 @@ def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rat
         attack_i_x, attack_i_y = [], []
 
         # data used in training, label is 1
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': train_x},
             num_epochs=1,
             shuffle=False)
@@ -126,7 +136,7 @@ def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rat
         attack_i_y.append(np.ones(train_x.shape[0]))
     
         # data not used in training, label is 0
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': test_x},
             num_epochs=1,
             shuffle=False)
@@ -154,6 +164,11 @@ def train_shadow_models(args, n_hidden=50, epochs=100, n_shadow=20, learning_rat
 
 
 def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, batch_size=200, epochs=50, model='nn', l2_ratio=1e-7):
+    """
+    Wrapper function to train the meta-model over the shadow models' output.
+    During inference time, the meta-model takes the target model's output and 
+    predicts if a query record is part of the target model's training set.
+    """
     if dataset is None:
         dataset = load_attack_data()
     train_x, train_y, test_x, test_y = dataset
@@ -183,7 +198,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
             model=model, 
             l2_ratio=l2_ratio)
         
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': c_train_x},
             num_epochs=1,
             shuffle=False)
@@ -193,7 +208,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
         shadow_pred_scores.append(c_pred_scores)
         shadow_class_labels.append([c]*len(c_train_indices))
 
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': c_test_x},
             num_epochs=1,
             shuffle=False)
@@ -218,16 +233,23 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     return (attack_adv, shadow_pred_scores, target_pred_scores, shadow_membership, target_membership, shadow_class_labels, target_class_labels)
 
 
-def save_data(args):
+def save_data(args,data_id=None):
+    """
+    Function to create the training, test and hold-out sets 
+    from the raw data set.
+    """
     print('-' * 10 + 'SAVING DATA TO DISK' + '-' * 10 + '\n')
     target_size = args.target_data_size
     gamma = args.target_test_train_ratio
     DATA_PATH = 'data/' + args.train_dataset + '/'
     if not os.path.exists(DATA_PATH):
         os.makedirs(DATA_PATH)
-
-    x = pickle.load(open('../dataset/'+args.train_dataset+'_features.p', 'rb'))
-    y = pickle.load(open('../dataset/'+args.train_dataset+'_labels.p', 'rb'))
+    if data_id:
+        x = pickle.load(open('../dataset/'+args.train_dataset+f'_features_{data_id}.p', 'rb'))
+        y = pickle.load(open('../dataset/'+args.train_dataset+f'_labels_{data_id}.p', 'rb'))
+    else:
+        x = pickle.load(open('../dataset/'+args.train_dataset+'_features.p', 'rb'))
+        y = pickle.load(open('../dataset/'+args.train_dataset+'_labels.p', 'rb'))
     x = np.array(x, dtype=np.float32)
     y = np.array(y, dtype=np.int32)
     print(x.shape, y.shape)
@@ -241,7 +263,10 @@ def save_data(args):
 
     # save target data
     print('Saving data for target model')
-    np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
+    if data_id and data_id>=0:
+        np.savez(DATA_PATH + f'target_data_{data_id}.npz', train_x, train_y, test_x, test_y)
+    else:
+        np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
 
     # assert if remaining data is enough for sampling shadow data
     assert(len(x) >= (1 + gamma) * target_size)
@@ -252,10 +277,16 @@ def save_data(args):
         train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=int(gamma*target_size), stratify=y)
         print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
         print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-        np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
+        if data_id and data_id>=0:
+            np.savez(DATA_PATH + 'shadow{}_data_{}.npz'.format(i, data_id), train_x, train_y, test_x, test_y)
+        else:
+            np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
 
 
 def load_data(data_name, args):
+    """
+    Loads the training and test sets for the given data set.
+    """
     DATA_PATH = 'data/' + args.train_dataset + '/'
     target_size = args.target_data_size
     gamma = args.target_test_train_ratio
@@ -272,6 +303,10 @@ def load_data(data_name, args):
 
 
 def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
+    """
+    Wrapper function for Shokri et al. membership inference attack 
+    that trains the shadow models and the meta-model.
+    """
     print('-' * 10 + 'SHOKRI\'S MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     print('-' * 10 + 'TRAIN SHADOW' + '-' * 10 + '\n')
     attack_train_x, attack_train_y, train_classes = train_shadow_models(
@@ -299,16 +334,25 @@ def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes
 
 
 def yeom_membership_inference(per_instance_loss, membership, train_loss, test_loss=None):
+    """
+    Yeom et al. membership inference attack that uses the 
+    per-instance loss to predict the record membership.
+    """
     print('-' * 10 + 'YEOM\'S MEMBERSHIP INFERENCE' + '-' * 10 + '\n')    
     if test_loss == None:
-    	pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
+        pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
     else:
-    	pred_membership = np.where(stats.norm(0, train_loss).pdf(per_instance_loss) >= stats.norm(0, test_loss).pdf(per_instance_loss), 1, 0)
-    prety_print_result(membership, pred_membership)
+        pred_membership = np.where(norm(0, train_loss).pdf(per_instance_loss) >= norm(0, test_loss).pdf(per_instance_loss), 1, 0)
+    #prety_print_result(membership, pred_membership)
     return pred_membership
 
 
 def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_instance_loss, args):
+    """
+    Our proposed membership inference attacks that use threshold-selection 
+    procedure for Yeom and Merlin attacks. The function returns the 
+    per-instance loss and merlin-ratio over target and hold-out sets.
+    """
     print('-' * 10 + 'PROPOSED MEMBERSHIP INFERENCE' + '-' * 10 + '\n')
     v_train_x, v_train_y, v_test_x, v_test_y = v_dataset
     v_true_x = np.vstack([v_train_x, v_test_x])
@@ -336,6 +380,9 @@ def proposed_membership_inference(v_dataset, true_x, true_y, classifier, per_ins
 
 
 def evaluate_proposed_membership_inference(per_instance_loss, membership, proposed_mi_outputs, fpr_threshold=None, per_class_thresh=False):
+    """
+    Evaluates the Yeom and Merlin attacks for a given FPR threshold.
+    """
     true_y, v_true_y, v_membership, v_per_instance_loss, v_merlin_ratio, merlin_ratio = proposed_mi_outputs
     print('-' * 10 + 'Using Yeom\'s MI with custom threshold' + '-' * 10 + '\n')
     if per_class_thresh:
@@ -367,10 +414,14 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
 
 
 def get_merlin_ratio(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
+    """
+    Returns the merlin-ratio for the Merlin attack, the merlin-ratio 
+    is between 0 and 1.
+    """
     counts = np.zeros(len(true_x))
     for t in range(max_t):
         noisy_x = true_x + generate_noise(true_x.shape, true_x.dtype, noise_params)
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': noisy_x}, 
            num_epochs=1,
             shuffle=False)
@@ -382,6 +433,9 @@ def get_merlin_ratio(true_x, true_y, classifier, per_instance_loss, noise_params
 
 
 def yeom_attribute_inference(true_x, true_y, classifier, membership, features, train_loss, test_loss=None):
+    """
+    Yeom et al.'s attribute inference attack for binary attributes.
+    """
     print('-' * 10 + 'YEOM\'S ATTRIBUTE INFERENCE' + '-' * 10 + '\n')
     pred_membership_all = []
     for feature in features:
@@ -389,7 +443,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
         low_value, high_value, true_attribute_value = get_attribute_variations(true_x, feature)
         
         true_x[:,feature] = low_value
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': true_x},
             num_epochs=1,
             shuffle=False)
@@ -399,7 +453,7 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
         low_op = log_loss(true_y, low_op)
         
         true_x[:,feature] = high_value
-        pred_input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
+        pred_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={'x': true_x},
             num_epochs=1,
             shuffle=False)
@@ -412,11 +466,11 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
         low_prob = 1 - high_prob
         
         if test_loss == None:
-            pred_attribute_value = np.where(low_prob * stats.norm(0, train_loss).pdf(low_op) >= high_prob * stats.norm(0, train_loss).pdf(high_op), 0, 1)
+            pred_attribute_value = np.where(low_prob * norm(0, train_loss).pdf(low_op) >= high_prob * norm(0, train_loss).pdf(high_op), 0, 1)
             mask = [1]*len(pred_attribute_value)
         else:
-            low_mem = np.where(stats.norm(0, train_loss).pdf(low_op) >= stats.norm(0, test_loss).pdf(low_op), 1, 0)
-            high_mem = np.where(stats.norm(0, train_loss).pdf(high_op) >= stats.norm(0, test_loss).pdf(high_op), 1, 0)
+            low_mem = np.where(norm(0, train_loss).pdf(low_op) >= norm(0, test_loss).pdf(low_op), 1, 0)
+            high_mem = np.where(norm(0, train_loss).pdf(high_op) >= norm(0, test_loss).pdf(high_op), 1, 0)
             pred_attribute_value = [np.argmax([low_prob * a, high_prob * b]) for a, b in zip(low_mem, high_mem)]
             mask = [a | b for a, b in zip(low_mem, high_mem)]
         

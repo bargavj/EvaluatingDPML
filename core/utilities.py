@@ -2,20 +2,24 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-from core.constants import SMALL_VALUE
-from core.constants import SEED
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_curve
 from collections import Counter
+
+# To avoid numerical inconsistency in calculating log
+SMALL_VALUE = 1e-6
+
+# Seed for random number generator
+SEED = 21312
 
 
 def prety_print_result(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     print('TP: %d     FP: %d     FN: %d     TN: %d' % (tp, fp, fn, tn))
     if tp == fp == 0:
-    	print('PPV: 0\nAdvantage: 0')
+        print('PPV: 0\nAdvantage: 0')
     else:
-    	print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
+        print('PPV: %.4f\nAdvantage: %.4f' % (tp / (tp + fp), tp / (tp + fn) - fp / (tn + fp)))
 
 
 def prety_print_confusion_matrix(cm, labels):
@@ -46,7 +50,7 @@ def prety_print_confusion_matrix(cm, labels):
 def get_ppv(mem, pred):
     tn, fp, fn, tp = confusion_matrix(mem, pred).ravel()
     if tp == fp == 0:
-    	return 0
+        return 0
     return tp / (tp + fp)
 
 
@@ -64,12 +68,12 @@ def get_inference_threshold(pred_vector, true_vector, fpr_threshold=None):
     fpr, tpr, thresholds = roc_curve(true_vector, pred_vector, pos_label=1)
     # return inference threshold corresponding to maximum advantage
     if fpr_threshold == None:
-    	return thresholds[np.argmax(tpr-fpr)]
+        return thresholds[np.argmax(tpr-fpr)]
     # return inference threshold corresponding to fpr_threshold
     for a, b in zip(fpr, thresholds):
-    	if a > fpr_threshold:
-    		break
-    	alpha_thresh = b
+        if a > fpr_threshold:
+            break
+        alpha_thresh = b
     return alpha_thresh
 
 
@@ -200,4 +204,28 @@ def plot_layer_outputs(plot_info, pos_label, neg_label, informative_neurons):
     plt.ylabel('Neuron Output')
     plt.legend()
     plt.tight_layout()
+    plt.show()
+
+
+def plot_neuron_outputs(plot_info, sorted_neurons, sorted_corr_vals, pos_label, neg_label):
+    pos_mean, pos_std, neg_mean, neg_std = plot_info
+    x = list(range(len(sorted_neurons)))
+    fig, ax1 = plt.subplots()
+    ax1.plot(x, neg_mean, '#DAA520', label=neg_label, lw=1)
+    ax1.fill_between(x, neg_mean - neg_std, neg_mean + neg_std, alpha=0.2, edgecolor='#DAA520', facecolor='#DAA520')
+    ax1.plot(x, pos_mean, '#DC143C', label=pos_label, lw=1)
+    ax1.fill_between(x, pos_mean - pos_std, pos_mean + pos_std, alpha=0.2, edgecolor='#DC143C', facecolor='#DC143C')
+    ax2 = ax1.twinx()
+    plt.plot(x, sorted_corr_vals, 'k', label='correlation', lw=1)
+    ax1.text(x[2], neg_mean[2] + 0.07, neg_label, c='#DAA520', fontsize=18)
+    ax1.text(x[8], pos_mean[8] + 0.04, pos_label, c='#DC143C', fontsize=18)
+    ax2.text(x[2], sorted_corr_vals[2] - 0.14, 'Pearson Correlation', c='k', fontsize=18)
+    ax1.set_ylim(0, 1)
+    ax2.set_ylim(0, 1)
+    ax1.set_xlim(1, len(sorted_neurons))
+    ax1.set_xscale('log')
+    ax1.set_xlabel('Neuron')
+    ax1.set_ylabel('Scaled Neuron Output')
+    ax2.set_ylabel('Correlation Value')
+    fig.tight_layout()
     plt.show()
