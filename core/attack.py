@@ -1,5 +1,4 @@
 import os
-import argparse
 import pickle
 import numpy as np
 import tensorflow.compat.v1 as tf
@@ -7,13 +6,17 @@ import tensorflow.compat.v1 as tf
 from core.classifier import train as train_model
 from core.classifier import get_predictions
 from core.utilities import log_loss
-from core.utilities import prety_print_result
+from core.utilities import pretty_print_result
 from core.utilities import get_inference_threshold
 from core.utilities import generate_noise
 from core.utilities import get_attribute_variations
+from core.utilities import plot_layer_outputs
+from core.data_util import load_attack_data
+from core.data_util import save_data
+from core.data_util import load_data
 from scipy.stats import norm
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
+from sklearn.preprocessing import QuantileTransformer
 
 MODEL_PATH = 'model/'
 
@@ -21,20 +24,7 @@ if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
 
-def load_attack_data():
-    """
-    Helper function to load the attack data for meta-model training.
-    """
-    fname = MODEL_PATH + 'attack_train_data.npz'
-    with np.load(fname) as f:
-        train_x, train_y = [f['arr_%d' % i] for i in range(len(f.files))]
-    fname = MODEL_PATH + 'attack_test_data.npz'
-    with np.load(fname) as f:
-        test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
-    return train_x.astype('float32'), train_y.astype('int32'), test_x.astype('float32'), test_y.astype('int32')
-
-
-def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
+def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_rate=0.01, clipping_threshold=1, l2_ratio=1e-7, n_hidden=50, n_out=None, model='nn', privacy='no_privacy', dp='dp', epsilon=0.5, delta=1e-5, save=True):
     """
     Wrapper function that trains the target model over the sensitive data.
     """
@@ -44,6 +34,7 @@ def train_target_model(args, dataset=None, epochs=100, batch_size=100, learning_
 
     classifier, aux = train_model(
         dataset, 
+        n_out=n_out, 
         n_hidden=n_hidden, 
         epochs=epochs, 
         learning_rate=learning_rate, 
@@ -170,7 +161,7 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     predicts if a query record is part of the target model's training set.
     """
     if dataset is None:
-        dataset = load_attack_data()
+        dataset = load_attack_data(MODEL_PATH)
     train_x, train_y, test_x, test_y = dataset
 
     train_classes, test_classes = classes
@@ -233,75 +224,6 @@ def train_attack_model(classes, dataset=None, n_hidden=50, learning_rate=0.01, b
     return (attack_adv, shadow_pred_scores, target_pred_scores, shadow_membership, target_membership, shadow_class_labels, target_class_labels)
 
 
-def save_data(args,data_id=None):
-    """
-    Function to create the training, test and hold-out sets 
-    from the raw data set.
-    """
-    print('-' * 10 + 'SAVING DATA TO DISK' + '-' * 10 + '\n')
-    target_size = args.target_data_size
-    gamma = args.target_test_train_ratio
-    DATA_PATH = 'data/' + args.train_dataset + '/'
-    if not os.path.exists(DATA_PATH):
-        os.makedirs(DATA_PATH)
-    if data_id:
-        x = pickle.load(open('../dataset/'+args.train_dataset+f'_features_{data_id}.p', 'rb'))
-        y = pickle.load(open('../dataset/'+args.train_dataset+f'_labels_{data_id}.p', 'rb'))
-    else:
-        x = pickle.load(open('../dataset/'+args.train_dataset+'_features.p', 'rb'))
-        y = pickle.load(open('../dataset/'+args.train_dataset+'_labels.p', 'rb'))
-    x = np.array(x, dtype=np.float32)
-    y = np.array(y, dtype=np.int32)
-    print(x.shape, y.shape)
-
-    # assert if data is enough for sampling target data
-    assert(len(x) >= (1 + gamma) * target_size)
-    x, train_x, y, train_y = train_test_split(x, y, test_size=target_size, stratify=y)
-    print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
-    x, test_x, y, test_y = train_test_split(x, y, test_size=int(gamma*target_size), stratify=y)
-    print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-
-    # save target data
-    print('Saving data for target model')
-    if data_id and data_id>=0:
-        np.savez(DATA_PATH + f'target_data_{data_id}.npz', train_x, train_y, test_x, test_y)
-    else:
-        np.savez(DATA_PATH + 'target_data.npz', train_x, train_y, test_x, test_y)
-
-    # assert if remaining data is enough for sampling shadow data
-    assert(len(x) >= (1 + gamma) * target_size)
-
-    # save shadow data
-    for i in range(args.n_shadow):
-        print('Saving data for shadow model {}'.format(i))
-        train_x, test_x, train_y, test_y = train_test_split(x, y, train_size=target_size, test_size=int(gamma*target_size), stratify=y)
-        print("Training set size:  X: {}, y: {}".format(train_x.shape, train_y.shape))
-        print("Test set size:  X: {}, y: {}".format(test_x.shape, test_y.shape))
-        if data_id and data_id>=0:
-            np.savez(DATA_PATH + 'shadow{}_data_{}.npz'.format(i, data_id), train_x, train_y, test_x, test_y)
-        else:
-            np.savez(DATA_PATH + 'shadow{}_data.npz'.format(i), train_x, train_y, test_x, test_y)
-
-
-def load_data(data_name, args):
-    """
-    Loads the training and test sets for the given data set.
-    """
-    DATA_PATH = 'data/' + args.train_dataset + '/'
-    target_size = args.target_data_size
-    gamma = args.target_test_train_ratio
-    with np.load(DATA_PATH + data_name) as f:
-        train_x, train_y, test_x, test_y = [f['arr_%d' % i] for i in range(len(f.files))]
-
-    train_x = np.array(train_x, dtype=np.float32)
-    test_x = np.array(test_x, dtype=np.float32)
-
-    train_y = np.array(train_y, dtype=np.int32)
-    test_y = np.array(test_y, dtype=np.int32)
-
-    return train_x, train_y, test_x[:int(gamma*target_size)], test_y[:int(gamma*target_size)]
-
-
 def shokri_membership_inference(args, attack_test_x, attack_test_y, test_classes):
     """
     Wrapper function for Shokri et al. membership inference attack 
@@ -343,7 +265,7 @@ def yeom_membership_inference(per_instance_loss, membership, train_loss, test_lo
         pred_membership = np.where(per_instance_loss <= train_loss, 1, 0)
     else:
         pred_membership = np.where(norm(0, train_loss).pdf(per_instance_loss) >= norm(0, test_loss).pdf(per_instance_loss), 1, 0)
-    #prety_print_result(membership, pred_membership)
+    #pretty_print_result(membership, pred_membership)
     return pred_membership
 
 
@@ -396,7 +318,7 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
     else:
         thresh = get_inference_threshold(-v_per_instance_loss, v_membership, fpr_threshold)
         pred_membership = np.where(per_instance_loss <= -thresh, 1, 0)
-    prety_print_result(membership, pred_membership)
+    pretty_print_result(membership, pred_membership)
 
     print('-' * 10 + 'Using Merlin with custom threshold' + '-' * 10 + '\n')
     if per_class_thresh:
@@ -410,7 +332,7 @@ def evaluate_proposed_membership_inference(per_instance_loss, membership, propos
     else:
         thresh = get_inference_threshold(v_merlin_ratio, v_membership, fpr_threshold)
         pred_membership = np.where(merlin_ratio >= thresh, 1, 0)
-    prety_print_result(membership, pred_membership)
+    pretty_print_result(membership, pred_membership)
 
 
 def get_merlin_ratio(true_x, true_y, classifier, per_instance_loss, noise_params, max_t=100):
@@ -475,7 +397,81 @@ def yeom_attribute_inference(true_x, true_y, classifier, membership, features, t
             mask = [a | b for a, b in zip(low_mem, high_mem)]
         
         pred_membership = mask & (pred_attribute_value ^ true_attribute_value ^ [1]*len(pred_attribute_value))
-        prety_print_result(membership, pred_membership)
+        pretty_print_result(membership, pred_membership)
         pred_membership_all.append(pred_membership)
         true_x[:,feature] = orignial_attribute
     return pred_membership_all
+
+        
+def nematode(rows, cols):
+    """
+    Adds small noise to avoid singular matrices.
+    """
+    return 1e-8 * np.random.rand(rows, cols)
+
+    
+def get_informative_neurons(pos, neg, k):
+    """
+    Function to find the most informative neurons of a 
+    neural network model that are most correlated to the 
+    sensitive attirbute value.
+    """
+    informative_neurons = []
+    correlation_vals = []
+    pos_ = pos + nematode(pos.shape[0], pos.shape[1])
+    neg_ = neg + nematode(neg.shape[0], neg.shape[1])
+    neuron_corr = np.corrcoef(np.hstack((np.concatenate((pos_, neg_), axis=0), np.concatenate((np.ones(len(pos)), np.zeros(len(neg))), axis=0).reshape((-1,1)))), rowvar=False)[-1, :-1]
+    top_corr = sorted(list(zip(neuron_corr, list(range(len(neuron_corr))))), key=(lambda v: v[0]), reverse=True)
+    
+    sorted_neurons = [v[1] for v in top_corr]
+    sorted_corr_vals = [v[0] for v in top_corr]
+    qt = QuantileTransformer(random_state=0)
+    qt.fit(np.vstack((pos[:, sorted_neurons], neg[:, sorted_neurons])))
+    pos_mean = np.mean(qt.transform(pos[:, sorted_neurons]), axis=0)
+    pos_std = np.std(qt.transform(pos[:, sorted_neurons]), axis=0)
+    neg_mean = np.mean(qt.transform(neg[:, sorted_neurons]), axis=0)
+    neg_std = np.std(qt.transform(neg[:, sorted_neurons]), axis=0)
+    pickle.dump([sorted_neurons, sorted_corr_vals, (pos_mean, pos_std, neg_mean, neg_std)], open('__temp_files/neuron_plot_info.p', 'wb'))
+    
+    top_corr = top_corr[:k]
+    print("Top %d correlations are in [%.2f, %.2f]" % (k, top_corr[k-1][0], top_corr[0][0]))
+    print("\nTop %d correlated neurons:" % (k))
+    for corr_val, neuron in top_corr:
+        print("Neuron #%d with correlation value of %.2f" % (neuron, corr_val))
+        informative_neurons.append(neuron)
+        correlation_vals.append(corr_val)
+    qt = QuantileTransformer(random_state=0)
+    qt.fit(np.vstack((pos[:, informative_neurons], neg[:, informative_neurons])))
+    pos_mean = np.mean(qt.transform(pos[:, informative_neurons]), axis=0)
+    pos_std = np.std(qt.transform(pos[:, informative_neurons]), axis=0)
+    neg_mean = np.mean(qt.transform(neg[:, informative_neurons]), axis=0)
+    neg_std = np.std(qt.transform(neg[:, informative_neurons]), axis=0)
+    return informative_neurons, correlation_vals, (pos_mean, pos_std, neg_mean, neg_std)
+
+
+def get_whitebox_score(X, correlation_vals, adv_known_idx):
+    """
+    Returns the white-box attribute inference attack's score 
+    that is strictly between 0 and 1, that indicates the 
+    attack's confidence in predicting the sensitive attribute 
+    value for a query record.
+    """
+    # robust transformation to map neuron outputs to [0,1] range
+    qt = QuantileTransformer(random_state=0)
+    qt.fit(X[adv_known_idx])
+    return np.average(qt.transform(X), weights=correlation_vals, axis=1)
+
+
+def whitebox_attack(layer_outputs, is_sensitive, adv_known_idx):
+    """
+    Our white-box attack that uses the neuron outputs of a 
+    neural netowork model to predict the sensitive attribute 
+    value for a query record.
+    """
+    pos_ind = list(filter(lambda x: is_sensitive[x], adv_known_idx))
+    neg_ind = list(set(adv_known_idx) - set(pos_ind))
+    informative_neurons, correlation_vals, plot_info = get_informative_neurons(layer_outputs[pos_ind], layer_outputs[neg_ind], k=100)
+    whitebox_info_k_1 = get_whitebox_score(layer_outputs[:, informative_neurons[:1]], correlation_vals[:1], adv_known_idx)
+    whitebox_info_k_10 = get_whitebox_score(layer_outputs[:, informative_neurons[:10]], correlation_vals[:10], adv_known_idx)
+    whitebox_info_k_100 = get_whitebox_score(layer_outputs[:, informative_neurons], correlation_vals, adv_known_idx)
+    return (whitebox_info_k_1, whitebox_info_k_10, whitebox_info_k_100), informative_neurons, correlation_vals, plot_info

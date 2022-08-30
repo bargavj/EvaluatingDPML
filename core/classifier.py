@@ -6,7 +6,7 @@ from core.privacy_accountant import accountant
 from tensorflow_privacy.privacy.optimizers import dp_optimizer
 
 LOGGING = False # enables tf.train.ProfilerHook (see use below)
-LOG_DIR = 'log'
+LOG_DIR = 'project_log'
 CHECKPOINT_DIR = '__temp_files'
 
 AdamOptimizer = tf.train.AdamOptimizer
@@ -54,11 +54,11 @@ def get_model(features, labels, mode, params):
     elif model == 'cnn':
         #print('Using convolution neural network...') # tailored for Cifar-100
         input_layer = tf.reshape(features['x'], [-1, 32, 32, 3])
-        y = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation=non_linearity)(input_layer)
-        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
-        y = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3])(y)
+        y = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation=non_linearity)(input_layer)
         y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
         y = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3])(y)
+        y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
+        y = tf.keras.layers.Conv2D(256, kernel_size=(3, 3), activation=non_linearity, input_shape=[-1, 32, 32, 3])(y)
         y = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(y)
         y = tf.keras.layers.Flatten()(y)
         y = tf.nn.dropout(y, 0.2)
@@ -74,9 +74,10 @@ def get_model(features, labels, mode, params):
     
     predictions = {
       "classes": tf.argmax(input=logits, axis=1),
-      "probabilities": logits,
-      "layer_outputs": tf.concat([h1, h2, pre_logits], axis=1) # not to be used for softmax regression
+      "probabilities": logits
     }
+    if model != 'lr':
+        predictions["layer_outputs"] = tf.concat([h1, h2, pre_logits], axis=1) # not to be used for softmax regression
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode=mode,
@@ -126,7 +127,7 @@ def get_model(features, labels, mode, params):
                                           eval_metric_ops=eval_metric_ops)
 
 
-def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, clipping_threshold=1, model='nn', l2_ratio=1e-7, silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
+def train(dataset, n_out=None, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, clipping_threshold=1, model='nn', l2_ratio=1e-7, silent=True, non_linearity='relu', privacy='no_privacy', dp = 'dp', epsilon=0.5, delta=1e-5):
     """
     Calls the get_model() to create a model given the model specifications, 
     performs model training and returns the trained model (along with the 
@@ -135,7 +136,8 @@ def train(dataset, n_hidden=50, batch_size=100, epochs=100, learning_rate=0.01, 
     train_x, train_y, test_x, test_y = dataset
 
     n_in = train_x.shape[1]
-    n_out = len(np.unique(train_y))
+    if n_out == None:
+        n_out = len(set(np.unique(train_y)).union(set(np.unique(test_y))))
 
     if batch_size > len(train_y):
         batch_size = len(train_y)
