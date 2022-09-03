@@ -32,7 +32,6 @@ new_rc_params = {
 	'xtick.major.pad': '8'
 }
 plt.rcParams.update(new_rc_params)
-#plt.style.use('dark_background')
 fsize = 18 # 16 for main figures and 18 for appendix figures
 
 RESULT_PATH = 'results/'
@@ -84,9 +83,7 @@ def plot_ppvs(args, gt, wb, mc, ip, clfs, plot_cond, data_type=0):
     clfs: meta-classifier that combines wb and mc
     plot_cond: flags that describe how and what lines to plot
     data_type: 0 (default) -- train data, 1 -- test data, 2: hold-out data
-    """
-    #plt.rcParams['figure.figsize'] = [8, 5]
-    
+    """    
     clfs_wb, clfs_bb = clfs
     ppv_ip = np.array([get_ppvs(gt[run][data_type], ip[run][data_type]) for run in RUNS])
     ppv_wb = np.array([get_ppvs(gt[run][data_type], wb[run][data_type]) for run in RUNS])
@@ -224,9 +221,9 @@ def scatter_plot(args, gt, wb, mc, ip, clfs, it):
     xx, yy = np.meshgrid(np.arange(0, 1.01, 0.02), np.arange(0, 1.01, 0.02))
     
     if args.dataset == 'census':
-        ip_low, ip_high, wb_low = 0.28, 0.5, 0.5 #0.2, 0.5, 0.6
+        ip_low, ip_high, wb_low = 0.28, 0.5, 0.5
     else:
-        ip_low, ip_high, wb_low = 0.0, 0.3, 0.9 #0.02, 0.5, 0.75
+        ip_low, ip_high, wb_low = 0.0, 0.3, 0.9
     
     vul_idxs = []
     tpls = np.zeros((N, 3))
@@ -243,7 +240,7 @@ def scatter_plot(args, gt, wb, mc, ip, clfs, it):
         ax[0][i].set_xlabel('Whitebox Output')
         Z = clfs_wb[i].predict(np.c_[yy.ravel(), xx.ravel()])
         Z = Z.reshape(xx.shape)
-        ax[0][i].contour(xx, yy, Z, levels=0, colors=['black'])#['#DAA520', '#DC143C'])
+        ax[0][i].contour(xx, yy, Z, levels=0, colors=['black'])
         print(sum(clfs_wb[i].predict(np.vstack((ip[i][it], wb[i][it])).T)), sum(clfs_bb[i].predict(np.vstack((ip[i][it], mc[i][it])).T)))
     print('Mean: %.2f / %.2f, %.2f PPV' % tuple(np.mean(tpls, axis=0)))
     print('Std : %.2f / %.2f, %.2f PPV' % tuple(np.std(tpls, axis=0)))
@@ -251,8 +248,8 @@ def scatter_plot(args, gt, wb, mc, ip, clfs, it):
     if args.banished_records == 0:
         for i in range(N):
             ax[0][i].scatter(wb[i][it][vul_idxs[i]], ip[i][it][vul_idxs[i]], s=3*np.pi, c='blue', alpha=0.6)
-        #if args.sample_size == 5000:
-            #pickle.dump(vul_idxs, open('data/' + args.dataset + '/' + str(args.attribute) + '_' + args.adv_knowledge + '_' + 'banished_records.p', 'wb'))
+        if args.sample_size == 5000:
+            pickle.dump(vul_idxs, open('data/' + args.dataset + '/' + str(args.attribute) + '_' + args.adv_knowledge + '_' + 'banished_records.p', 'wb'))
     else:
         banished_idx = pickle.load(open('data/' + args.dataset + '/' + str(args.attribute) + '_' + args.adv_knowledge + '_' + 'banished_records.p', 'rb'))
         tpls = np.zeros((N, 3))
@@ -269,13 +266,12 @@ def scatter_plot(args, gt, wb, mc, ip, clfs, it):
     f, ax = plt.subplots(1, N, sharey=True, squeeze=False)
     ax[0][0].set_ylabel('Imputation Confidence')
     for i in range(N):
-        j = 1 # minor work-around for convenience
-        c_vec = ['#DAA520' if gt_ == 0 else '#DC143C' for gt_ in gt[j][it]]
-        ax[0][i].scatter(mc[j][it], ip[j][it], s=3*np.pi, c=c_vec, alpha=0.6)
+        c_vec = ['#DAA520' if gt_ == 0 else '#DC143C' for gt_ in gt[i][it]]
+        ax[0][i].scatter(mc[i][it], ip[i][it], s=3*np.pi, c=c_vec, alpha=0.6)
         ax[0][i].set_xlabel('Model Confidence')
-        Z = clfs_bb[j].predict(np.c_[yy.ravel(), xx.ravel()])
+        Z = clfs_bb[i].predict(np.c_[yy.ravel(), xx.ravel()])
         Z = Z.reshape(xx.shape)
-        ax[0][i].contour(xx, yy, Z, levels=0, colors=['black'])#['#DAA520', '#DC143C'])
+        ax[0][i].contour(xx, yy, Z, levels=0, colors=['black'])
     f.tight_layout()
     plt.show()
 
@@ -388,6 +384,7 @@ if __name__ == '__main__':
     clfs_wb = [fit_model(args, gt[run][2], ip[run][2], wb[run][2]) for run in RUNS]
     clfs_bb = [fit_model(args, gt[run][2], ip[run][2], mc[run][2]) for run in RUNS]
     
+    # change the values in plot_cond to get the desired plots
     plot_cond = {
         'ip': {'flag': True, 'xoffset': 100, 'yoffset': 0.04},
         'wb': {'flag': True, 'xoffset': 2, 'yoffset': 0.02},
@@ -400,8 +397,8 @@ if __name__ == '__main__':
     }
     print('*'*5 + ' Train Set ' + '*'*5)
     plot_ppvs(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), plot_cond)
-    #print('*'*5 + ' Test Set ' + '*'*5)
-    #plot_ppvs(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), plot_cond, data_type=1)
+    print('*'*5 + ' Test Set ' + '*'*5)
+    plot_ppvs(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), plot_cond, data_type=1)
     '''
     plot_cond = {
         'wb': {'xoffset': 1, 'yoffset': -0.16},
@@ -412,4 +409,4 @@ if __name__ == '__main__':
     plot_ppv_change(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), plot_cond)
     '''
     #plot_roc(args, gt, wb, mc, ip)
-    #scatter_plot(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), 0)
+    scatter_plot(args, gt, wb, mc, ip, (clfs_wb, clfs_bb), 0)

@@ -7,6 +7,7 @@ The code has been adapted from the [code base](https://github.com/csong27/member
 Below we describe the setup and installation instructions. To run the experiments for the following projects, refer to their respective README files (hyperlinked):
 * [Evaluating Differentially Private Machine Learning in Practice](evaluating_dpml/README.md) (`evaluating_dpml\`)
 * [Revisiting Membership Inference Under Realistic Assumptions](improved_mi/README.md) (`improved_mi\`)
+* [Are Attribute Inference Attacks Just Imputation?](improved_ai/README.md) (`improved_ai\`)
 
 
 ### Software Requirements
