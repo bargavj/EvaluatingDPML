@@ -24,7 +24,7 @@ Other command-line arguments are as follows:
 - `--attribute`: Target sensitive attribute. For Census19: 1 (Race), and for Texas-100X: 2 (Ethnicity)
 - `--skew_outcome`: In case skew_attribute = 1, which outcome the distribution is skewed upon -- For Census Race: 0 (White, default), 1 (Black) or 3 (Asian), and for Texas Ethnicity: 0 (Hispanic, default) or 1 (Not Hispanic)
 - `--sensitive_outcome`: For Census Race: 0 (White, default), 1 (Black) or 3 (Asian), and for Texas Ethnicity: 0 (Hispanic, default) or 1 (Not Hispanic)
-- `--eps` specifies the epsilon value to be used for private model (default = None), use eps=1 for private model results
+- `--eps`: Specifies the epsilon value to be used for private model (default = None), use eps=1 for private model results
 - `--adv_knowledge`: Distribution knowledge of adversary: knows skewed distribution (low or low2), knows training distribution (med) or knows training data set (high)
 - `--sample_size`: How many records the adversary knows: 50, 500, 5000 or 50000
 - `--banished_records`: Whether to get results from model trained after removing vulnerable records
