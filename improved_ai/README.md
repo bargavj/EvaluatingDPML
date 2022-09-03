@@ -1,4 +1,4 @@
-# Revisiting Membership Inference Under Realistic Assumptions
+# Are Attribute Inference Attacks Just Imputation?
 
 Please refer to [main README file](../README.md) for instructions on setup and installation.
 
