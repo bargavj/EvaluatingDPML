@@ -2,7 +2,7 @@
 
 Please refer to [main README file](../README.md) for instructions on setup and installation.
 
-To replicate the results of the paper [*Are Attribute Inference Attacks Just Imputation?*](https://arxiv.org/abs/2005.10881), you would need to execute the `run_experiments.sh` shell script, which runs the `main.py` multiple times for different hyper-parameter settings and stores the results in the `results/$DATASET` folder. This is used for plotting the figures/tables in the paper. Note that the execution may take multiple days to complete on a single machine. For instance, for Census19 data set, run the following command:
+To replicate the results of the paper [*Are Attribute Inference Attacks Just Imputation?*](https://arxiv.org/abs/2209.01292), you would need to execute the `run_experiments.sh` shell script, which runs the `main.py` multiple times for different hyper-parameter settings and stores the results in the `results/$DATASET` folder. This is used for plotting the figures/tables in the paper. Note that the execution may take multiple days to complete on a single machine. For instance, for Census19 data set, run the following command:
 ```
 $ ./run_experiments.sh -s census
 ```
