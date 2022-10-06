@@ -13,7 +13,7 @@ $ ./run_experiments.sh purchase_100
 
 As mentioned above, the enitre script execution takes several days to finish as it requires running `main.py` multiple times for all possible settings. This is required to generate all the tables/plots in the paper. However, we can also run `main.py` for specific settings, as explained below.
 
-When you are running the code on a data set for the first time, run:
+When running the code on a data set for the first time, run:
 ```
 $ python3 main.py cifar_100 --save_data=1
 ```
