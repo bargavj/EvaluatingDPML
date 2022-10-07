@@ -67,13 +67,11 @@ $ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
 Data sets can be obtained using the `preprocess_dataset.py` script provided in the `extra/` folder. The script requires raw files for the respective data sets which can be found online using the following links:
 
 - **Purchase-100X**: The source file `transactions.csv` can be downloaded from https://www.kaggle.com/c/acquire-valued-shoppers-challenge/data and should be saved in the `dataset/` folder.
-#- **Compas**: The source file `cox-violent-parsed_filt.csv` file can be downloaded from https://www.kaggle.com/danofer/compass and should be saved in the `dataset/` folder.
 - **Census19**: The source files can be downloaded from https://www2.census.gov/programs-surveys/acs/data/pums/2019/1-Year/ and should be saved in the `dataset/census/` folder. Alternatively, the source files can be obtained by running the `crawl_census_data.py` script in the `extra/` folder:
 >> `$ python3 crawl_census_data.py`
 - **Texas-100X**: `PUDF_base1q2006_tab.txt`, `PUDF_base2q2006_tab.txt`, `PUDF_base3q2006_tab.txt` and `PUDF_base4q2006_tab.txt` files can be downloaded from https://www.dshs.texas.gov/THCIC/Hospitals/Download.shtm and should be saved in the `dataset/texas_100_v2/` folder.
-#- **Location**: The source file `bangkok_location` can be downloaded from https://github.com/privacytrustlab/datasets and should be saved in the `dataset/` folder. 
 
-Once the source files for the respective data set are obtained, `preprocess_dataset.py` script would be able to generate the processed data set files, which are in the form of two pickle files: `$DATASET`_feature.p and `$DATASET`_labels.p (where `$DATASET` is a placeholder for the data set file name). For Purchase-100X, `$DATASET = purchase_100`. For Texas-100X, `$DATASET = texas_100_v2`.# For Compas, `$DATASET = compas`. For Location, `$DATASET = location`. For Census19, `$DATASET = census`.
+Once the source files for the respective data set are obtained, `preprocess_dataset.py` script would be able to generate the processed data set files, which are in the form of two pickle files: `$DATASET`_feature.p and `$DATASET`_labels.p (where `$DATASET` is a placeholder for the data set file name). For Purchase-100X, `$DATASET = purchase_100`. For Texas-100X, `$DATASET = texas_100_v2`. For Census19, `$DATASET = census`.
 ```
 $ python3 preprocess_dataset.py $DATASET --preprocess=1
 ```
