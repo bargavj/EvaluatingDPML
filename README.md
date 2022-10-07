@@ -73,10 +73,9 @@ Data sets can be obtained using the `preprocess_dataset.py` script provided in t
 - **Texas-100X**: `PUDF_base1q2006_tab.txt`, `PUDF_base2q2006_tab.txt`, `PUDF_base3q2006_tab.txt` and `PUDF_base4q2006_tab.txt` files can be downloaded from https://www.dshs.texas.gov/THCIC/Hospitals/Download.shtm and should be saved in the `dataset/texas_100_v2/` folder.
 - **Location**: The source file `bangkok_location` can be downloaded from https://github.com/privacytrustlab/datasets and should be saved in the `dataset/` folder. 
 
-Once the source files for the respective data set are obtained, `preprocess_dataset.py` script would be able to generate the processed data set files, which are in the form of two pickle files: `$DATASET`_feature.p and `$DATASET`_labels.p (where `$DATASET` is a placeholder for the data set file name).
+Once the source files for the respective data set are obtained, `preprocess_dataset.py` script would be able to generate the processed data set files, which are in the form of two pickle files: `$DATASET`_feature.p and `$DATASET`_labels.p (where `$DATASET` is a placeholder for the data set file name). For Purchase-100X, `$DATASET = purchase_100`. For Texas-100X, `$DATASET = texas_100_v2`. For Compas, `$DATASET = compas`. For Location, `$DATASET = location`. For Census19, `$DATASET = census`.
 ```
 $ python3 preprocess_dataset.py $DATASET --preprocess=1
 ```
-For Purchase-100X, `$DATASET = purchase_100`. For Texas-100X, `$DATASET = texas_100_v2`. For Compas, `$DATASET = compas`. For Location, `$DATASET = location`. For Census19, `$DATASET = census`. 
 
 For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$DATASET`_feature.p and `$DATASET`_labels.p files in the `dataset/` folder (where `$DATASET` is a placeholder for the data set file name, e.g. for Purchase-100 data set, `$DATASET` will be `purchase_100`).
