@@ -250,15 +250,14 @@ def plot_accuracy(result, data_id=None):
 	for dp in DP:
 		test_acc_vec = np.zeros((A, B))
 		for a, eps in enumerate(EPSILONS):
-			train_accs,baseline_acc = np.zeros(B), np.zeros(B)
+			train_accs = np.zeros(B)
 			for run in RUNS:
 				aux, membership, per_instance_loss, yeom_mi_outputs_1, yeom_mi_outputs_2, shokri_mi_outputs, proposed_mi_outputs = result[dp][eps][run]
 				train_loss, train_acc, test_loss, test_acc = aux
 				test_acc_vec[a, run] = test_acc
-				baseline_acc[run] = test_acc
 				train_accs[run] = train_acc
 			print('->' + (f'GDP with epsilon={eps}:' if dp=='gdp_' else f'RDP with epsilon={eps}:'))
-			print(f"Train acc: {np.mean(train_accs)}, Test acc: {np.mean(baseline_acc)}\n")
+			print(f"Train acc: {np.mean(train_accs)}, Test acc: {np.mean(test_acc_vec[a])}\n")
 		y[dp] = 1 - np.mean(test_acc_vec, axis=1) / baseline_acc
 		plt.errorbar(EPSILONS, y[dp], yerr=np.std(test_acc_vec, axis=1), color=str(color), fmt='.-', capsize=2, label=DP_LABELS[DP.index(dp)])
 		color += 0.2
