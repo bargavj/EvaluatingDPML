@@ -113,9 +113,9 @@ class PreprocessDataset:
             self.preprocess_all_census()
         elif self.dataset_name == 'texas_100_v2':
             self.preprocess_texas()
-    
-    
-    def normalizeDataset(X):
+
+
+    def normalizeDataset(self, X):
         mods = np.linalg.norm(X, axis=1)
         return X / mods[:, np.newaxis]
     
