@@ -1,16 +1,18 @@
+import pickle
+import operator
+import argparse
+import os
+import warnings
+import numpy as np
+import pandas as pd
+
 from sklearn.preprocessing import normalize
 from sklearn.cluster import KMeans
 from pprint import pprint
 from collections import Counter
-import numpy as np
-import pandas as pd
-import pickle
-import operator
-import argparse
 from os import listdir
 from os.path import isfile, join
-import os
-import warnings
+
 warnings.filterwarnings("ignore")
 
 DATA_PATH = '../dataset/'
@@ -18,7 +20,11 @@ DATA_PATH = '../dataset/'
 
 class PreprocessDataset:
     dataset_name = ''
-    x_columns = ['AGEP', 'COW', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'DREM', 'DPHY', 'DEAR', 'DEYE', 'WKHP', 'WAOB', 'ST','PINCP']
+    x_columns = ['AGEP', 'COW', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'DREM', 'DPHY', 'DEAR', 'DEYE', 'WKHP', 'WAOB', 'ST', 'PUMA', 'PINCP']
+    
+    
+    def __init__(self, dataset_name):
+        self.dataset_name = dataset_name
     
     
     def parseX(self):
@@ -29,7 +35,7 @@ class PreprocessDataset:
         allColumns = [f.strip().upper() for f in allColumns]
         #first validate the args and only look at columns that can exist in census
         allColumns = [f for f in allColumns if f in self.x_columns]
-        #then find all columns that is not needed and should be dropped
+        #then find all columns that are not needed and should be dropped
         allColumns = [f for f in self.x_columns if f not in allColumns]
         if 'PINCP' in allColumns:
             allColumns.remove('PINCP')
@@ -78,13 +84,9 @@ class PreprocessDataset:
                 value = float(parse[1])
                 if column in X.columns:
                     temp_X = temp_X.loc[temp_X[column] == value]
-        if len(temp_X.index)==0:
+        if len(temp_X.index) == 0:
             raise Exception("There is no matching row with the given constraints!")
         return temp_X
-    
-    
-    def __init__(self, dataset_name):
-        self.dataset_name = dataset_name
     
     
     def binarize(self):
@@ -113,8 +115,8 @@ class PreprocessDataset:
             self.preprocess_all_census()
         elif self.dataset_name == 'texas_100_v2':
             self.preprocess_texas()
-
-
+    
+    
     def normalizeDataset(self, X):
         mods = np.linalg.norm(X, axis=1)
         return X / mods[:, np.newaxis]
@@ -242,7 +244,7 @@ class PreprocessDataset:
         # Note: psam_p51.csv file can be downloaded from https://www.census.gov/programs-surveys/acs/microdata/access.html
         df = pd.read_csv(DATA_PATH+self.dataset_name+'/psam_p51.csv')
         ''' to make a data set similar to Adult data set, filter rows such that 
-            df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 50k
+            df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 90k (inflation taken into account since 1996)
             'PWGTP' should not be used for model training, its possibly for data sampling
         '''
         print(df)
@@ -256,7 +258,7 @@ class PreprocessDataset:
         df = df.astype('int64')
         print(df)
         #print(df.isnull().any(axis=0))
-        print('Number of records with Income > $50K: %d' % sum(df['PINCP'] > 50000))
+        print('Number of records with Income > $90K: %d' % sum(df['PINCP'] > 90000))
         # combining Alaskan Native and American Indian, and their combinations into one class
         df.loc[df['RAC1P'] == 3, 'RAC1P'] = 2
         df.loc[df['RAC1P'] == 4, 'RAC1P'] = 2
@@ -275,13 +277,15 @@ class PreprocessDataset:
         attribute_dict[df.columns.get_loc('WAOB')] = {0: 'US state', 1: 'PR and US Island Areas', 2: 'Latin America', 3: 'Asia', 4: 'Europe', 5: 'Africa', 6: 'Northern America', 7: 'Oceania and at Sea'}
         attribute_dict[df.columns.get_loc('SCHL')] = {0: 'No schooling completed', 1: 'Nursery school, preschool', 2: 'Kindergarten', 3: 'Grade 1', 4: 'Grade 2', 5: 'Grade 3', 6: 'Grade 4', 7: 'Grade 5', 8: 'Grade 6', 9: 'Grade 7', 10: 'Grade 8', 11: 'Grade 9', 12: 'Grade 10', 13: 'Grade 11', 14: '12th grade - no diploma', 15: 'Regular high school diploma', 16: 'GED or alternative credential', 17: 'Some college, but less than 1 year', 18: '1 or more years of college credit, no degree', 19: 'Associates degree', 20: 'Bachelors degree', 21: 'Masters degree', 22: 'Professional degree beyond a bachelors degree', 23: 'Doctorate degree'}
         
-        attribute_idx = {col: df.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL']}
+        attribute_idx = {col: df.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL', 'PINCP']}
         pprint(attribute_idx)
         pprint(attribute_dict)
         
         y = np.array(df['PINCP'])
-        y = np.where(y > 50000, 1, 0)
-        X = np.matrix(df.drop(columns='PINCP'))
+        y = np.where(y > args.high_income_threshold, 1, 0)
+        # not removing PINCP as it may be used for data analysis, but should be dropped from training
+        #X = np.matrix(df.drop(columns='PINCP'))
+        X = np.matrix(df)
         print(X.shape, y.shape)
         
         max_attr_vals = np.max(X, axis=0)
@@ -307,11 +311,12 @@ class PreprocessDataset:
             # Note: psam_p51.csv file can be downloaded from https://www.census.gov/programs-surveys/acs/microdata/access.html
             df = pd.read_csv(path+"/"+file)
             ''' to make a data set similar to Adult data set, filter rows such that 
-                df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 90k (taken into account of inflation from 1996)
+                df['AGEP'] > 16 && df['WKHP'] > 0, task : df['PINCP'] > 90k (inflation taken into account since 1996)
                 'PWGTP' should not be used for model training, its possibly for data sampling
-                PS: the ST (state) column is included to denote the geographical region of the data records.
+                'ST' (state) column is included to denote the geographical region of the data records.
+                'PUMA' column is only for fine-grained geographical region, to be combined with 'ST' for denoting unique regions with at least 100,000 people
             '''
-            df = df[['AGEP', 'COW', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'DREM', 'DPHY', 'DEAR', 'DEYE', 'WKHP', 'WAOB', 'ST', 'PINCP']]
+            df = df[['AGEP', 'COW', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'DREM', 'DPHY', 'DEAR', 'DEYE', 'WKHP', 'WAOB', 'ST', 'PUMA', 'PINCP']]
             df = df[df['AGEP'] > 16]
             df = df[df['WKHP'] > 0]
             for col in ['DREM', 'DPHY', 'DEAR', 'DEYE']:
@@ -331,7 +336,7 @@ class PreprocessDataset:
             
             #concat data in the current file to the aggregated data
             if df_all is not None:
-                df_all = pd.concat([df_all,df])
+                df_all = pd.concat([df_all, df])
             else:
                 df_all = df
         #Remove unused keys for ST attribute (e.g. there is no state for value 3)
@@ -350,9 +355,10 @@ class PreprocessDataset:
         # print(X)
         
         y = np.array(X['PINCP'])
-        y = np.where(y >= args.high_income_threshold, 1, 0)
-        # print('Number of records with Income > $90K: %d' % sum(X['PINCP'] > 90000))
-        X = X.drop(columns='PINCP')
+        y = np.where(y > args.high_income_threshold, 1, 0)
+        print('Number of records with Income > $90K: %d' % sum(X['PINCP'] > 90000))
+        # not removing PINCP as it may be used for data analysis, but should be dropped from training
+        #X = X.drop(columns='PINCP')
         # creating the categorical attribute dictionary
         attribute_dict = {}
         for col, desc in zip(['DREM', 'DPHY', 'DEAR', 'DEYE'], ['Cognitive Difficulty', 'Ambulatory Difficulty', 'Hearing Difficulty', 'Vision Difficulty']):
@@ -425,9 +431,7 @@ class PreprocessDataset:
                 }
         if 'SCHL' not in allColumns:
             attribute_dict[X.columns.get_loc('SCHL')] = {0: 'No schooling completed', 1: 'Nursery school, preschool', 2: 'Kindergarten', 3: 'Grade 1', 4: 'Grade 2', 5: 'Grade 3', 6: 'Grade 4', 7: 'Grade 5', 8: 'Grade 6', 9: 'Grade 7', 10: 'Grade 8', 11: 'Grade 9', 12: 'Grade 10', 13: 'Grade 11', 14: '12th grade - no diploma', 15: 'Regular high school diploma', 16: 'GED or alternative credential', 17: 'Some college, but less than 1 year', 18: '1 or more years of college credit, no degree', 19: 'Associates degree', 20: 'Bachelors degree', 21: 'Masters degree', 22: 'Professional degree beyond a bachelors degree', 23: 'Doctorate degree'}
-        attribute_idx = {col: X.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL', 'ST'] if col not in allColumns}
-        # pprint(attribute_idx)
-        # pprint(attribute_dict)
+        attribute_idx = {col: X.columns.get_loc(col) for col in ['DREM', 'DPHY', 'DEAR', 'DEYE', 'SEX', 'COW', 'MAR', 'RAC1P', 'WAOB', 'SCHL', 'ST', 'PUMA', 'PINCP'] if col not in allColumns}
         X = np.matrix(X)
 
         max_attr_vals = np.max(X, axis=0)
@@ -437,22 +441,23 @@ class PreprocessDataset:
             pass
         
         max_attr_vals = np.squeeze(np.array(max_attr_vals))
-        # print(max_attr_vals, max_attr_vals.shape)
-        # print(f"Length of y: {len(y)}")
-        # print(f"Dimension of X: {X.shape}")
+        print(max_attr_vals, max_attr_vals.shape)
+        print(f"Length of y: {len(y)}")
+        print(f"Dimension of X: {X.shape}")
+        pprint(attribute_idx)
+        pprint(attribute_dict)
+        print(f"maximum attribute values for columns: {max_attr_vals}")
+        
         if args.add_data_id:
             dataset_identifier = 0
             fname = DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p'
             while os.path.isfile(fname):
-                dataset_identifier+=1
+                dataset_identifier += 1
                 fname = DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p'
 
             np.savetxt(DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.csv', X, delimiter=",")
             np.savetxt(DATA_PATH+self.dataset_name+f'_labels_{dataset_identifier}.csv', y, delimiter=",")
-            # pprint(attribute_idx)
-            # pprint(attribute_dict)
-            # print(f"maximum attribute values for columns: {max_attr_vals}")
-
+            
             pickle.dump(X, open(DATA_PATH+self.dataset_name+f'_features_{dataset_identifier}.p', 'wb'))
             pickle.dump(y, open(DATA_PATH+self.dataset_name+f'_labels_{dataset_identifier}.p', 'wb'))
             pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+f'_feature_desc_{dataset_identifier}.p', 'wb'))
@@ -462,10 +467,7 @@ class PreprocessDataset:
         else:
             np.savetxt(DATA_PATH+self.dataset_name+f'_features.csv', X, delimiter=",")
             np.savetxt(DATA_PATH+self.dataset_name+f'_labels.csv', y, delimiter=",")
-            # pprint(attribute_idx)
-            # pprint(attribute_dict)
-            # print(f"maximum attribute values for columns: {max_attr_vals}")
-
+            
             pickle.dump(X, open(DATA_PATH+self.dataset_name+f'_features.p', 'wb'))
             pickle.dump(y, open(DATA_PATH+self.dataset_name+f'_labels.p', 'wb'))
             pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+'_feature_desc.p', 'wb'))
@@ -473,9 +475,25 @@ class PreprocessDataset:
     
     
     def preprocess_texas(self):
-        # Note: PUDF_base1q2006_tab.txt file can be downloaded from https://www.dshs.texas.gov/THCIC/Hospitals/Download.shtm
-        df = pd.read_csv(DATA_PATH+self.dataset_name+'/PUDF_base1q2006_tab.txt', sep='\t')
-        df = df[['SEX_CODE', 'TYPE_OF_ADMISSION', 'SOURCE_OF_ADMISSION', 'LENGTH_OF_STAY', 'PAT_AGE', 'PAT_STATUS', 'RACE', 'ETHNICITY', 'TOTAL_CHARGES', 'ADMITTING_DIAGNOSIS', 'PRINC_SURG_PROC_CODE']]
+        path = DATA_PATH+self.dataset_name
+        allDataFiles = [f for f in listdir(path) if (isfile(join(path, f)) and f.endswith('.txt'))]
+        df = None
+        #print("All data files")
+        #print(allDataFiles)
+        #go over all files in the texas_100_v2 data folder
+        for file in allDataFiles:
+            # Note: PUDF_base1q2006_tab.txt file can be downloaded from https://www.dshs.texas.gov/THCIC/Hospitals/Download.shtm
+            #df_ = pd.read_csv(DATA_PATH+self.dataset_name+'/PUDF_base1q2006_tab.txt', sep='\t')
+            df_ = pd.read_csv(path+"/"+file, sep='\t')
+            df_ = df_[['THCIC_ID', 'SEX_CODE', 'TYPE_OF_ADMISSION', 'SOURCE_OF_ADMISSION', 'LENGTH_OF_STAY', 'PAT_AGE', 'PAT_STATUS', 'RACE', 'ETHNICITY', 'TOTAL_CHARGES', 'ADMITTING_DIAGNOSIS', 'PRINC_SURG_PROC_CODE']]
+            #concat data in the current file to the aggregated data
+            if df is not None:
+                df = pd.concat([df, df_], ignore_index=True)
+            else:
+                df = df_
+        
+        df.drop_duplicates(inplace=True)
+        print(df)
         cat_attrs = ['SEX_CODE', 'TYPE_OF_ADMISSION', 'SOURCE_OF_ADMISSION', 'PAT_STATUS', 'RACE', 'ETHNICITY', 'ADMITTING_DIAGNOSIS', 'PRINC_SURG_PROC_CODE']
         df.loc[df['SEX_CODE'] == 'M', 'SEX_CODE'] = 0
         df.loc[df['SEX_CODE'] == 'F', 'SEX_CODE'] = 1
@@ -510,14 +528,19 @@ class PreprocessDataset:
         for col in cat_attrs:
             if col == 'SEX_CODE':
                 attribute_dict[df.columns.get_loc('SEX_CODE')] = {0: 'Male', 1: 'Female'}
+            elif col == 'ETHNICITY':
+                attribute_dict[df.columns.get_loc('ETHNICITY')] = {0: 'Hispanic', 1: 'Not Hispanic'}
+            elif col == 'RACE':
+                # note: Pacific Islander is grouped with Asian in this data set
+                attribute_dict[df.columns.get_loc('RACE')] = {0: 'Native American', 1: 'Asian', 2: 'Black', 3: 'White', 4: 'Other'}
             elif col == 'PRINC_SURG_PROC_CODE':
                 continue
             else:
                 attribute_dict[df.columns.get_loc(col)] = {val: str(val) for val in mapping[col].values()}
         
-        attribute_idx = {col: df.columns.get_loc(col) for col in set(cat_attrs) - {'PRINC_SURG_PROC_CODE'}}
+        attribute_idx = {col: df.columns.get_loc(col) for col in set(cat_attrs).union({'THCIC_ID', 'TOTAL_CHARGES'}) - {'PRINC_SURG_PROC_CODE'}}
         pprint(attribute_idx)
-        pprint(attribute_dict)
+        #pprint(attribute_dict)
         
         y = np.array(df['PRINC_SURG_PROC_CODE'])
         X = np.matrix(df.drop(columns='PRINC_SURG_PROC_CODE'))
@@ -531,6 +554,7 @@ class PreprocessDataset:
         pickle.dump(X, open(DATA_PATH+self.dataset_name+'_features.p', 'wb'))
         pickle.dump(y, open(DATA_PATH+self.dataset_name+'_labels.p', 'wb'))
         pickle.dump([attribute_idx, attribute_dict, max_attr_vals], open(DATA_PATH+self.dataset_name+'_feature_desc.p', 'wb'))
+        
 
 
 if __name__ == '__main__':
