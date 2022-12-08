@@ -2,8 +2,9 @@ import math
 import time
 import numpy as np
 
-from tensorflow_privacy.privacy.analysis.rdp_accountant import compute_rdp
-from tensorflow_privacy.privacy.analysis.rdp_accountant import get_privacy_spent
+#from tensorflow_privacy.privacy.analysis.rdp_accountant import compute_rdp
+#from tensorflow_privacy.privacy.analysis.rdp_accountant import get_privacy_spent
+from tensorflow_privacy.privacy.analysis import compute_dp_sgd_privacy_lib
 from scipy.stats import norm
 
 MAX_SIGMA = 1e6
@@ -91,8 +92,9 @@ class accountant:
             sigma_high = 2 * sigma_high
             
             if self.dp_type == 'rdp':
-                rdp = compute_rdp(self.sampling_rate, sigma_high, self.steps, orders)
-                eps_high, _, _ = get_privacy_spent(orders, rdp, target_delta=self.target_delta)
+                #rdp = compute_rdp(self.sampling_rate, sigma_high, self.steps, orders)
+                #eps_high, _, _ = get_privacy_spent(orders, rdp, target_delta=self.target_delta)
+                eps_high, _ = compute_dp_sgd_privacy_lib.compute_dp_sgd_privacy(self.data_size, self.batch_size, sigma_high, self.epochs, self.target_delta)
             else: # if self.dp_type == 'gdp'
                 mu = compute_gdp_mu(self.sampling_rate, sigma_high, self.steps)
                 eps_high, delta = get_gdp_privacy_spent(mu, target_delta=self.target_delta)
@@ -106,8 +108,9 @@ class accountant:
             sigma = (sigma_low + sigma_high) / 2
             
             if self.dp_type == 'rdp':
-                rdp = compute_rdp(self.sampling_rate, sigma, self.steps, orders)
-                eps, _, _ = get_privacy_spent(orders, rdp, target_delta=self.target_delta)
+                #rdp = compute_rdp(self.sampling_rate, sigma, self.steps, orders)
+                #eps, _, _ = get_privacy_spent(orders, rdp, target_delta=self.target_delta)
+                eps, _ = compute_dp_sgd_privacy_lib.compute_dp_sgd_privacy(self.data_size, self.batch_size, sigma, self.epochs, self.target_delta)
             else: # if self.dp_type == 'gdp'
                 mu = compute_gdp_mu(self.sampling_rate, sigma, self.steps)
                 eps, delta = get_gdp_privacy_spent(mu, target_delta=self.target_delta)
