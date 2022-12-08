@@ -76,4 +76,6 @@ Once the source files for the respective data set are obtained, `preprocess_data
 $ python3 preprocess_dataset.py $DATASET --preprocess=1
 ```
 
+Alternatively, Census19 data set (as is used in the attribute inference paper) can also be found in the `dataset/` folder in zip format.
+
 For pre-processing other data sets, bound the L2 norm of each record to 1 and pickle the features and labels separately into `$DATASET`_feature.p and `$DATASET`_labels.p files in the `dataset/` folder (where `$DATASET` is a placeholder for the data set file name, e.g. for Purchase-100 data set, `$DATASET` will be `purchase_100`).
